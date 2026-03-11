@@ -1,0 +1,6 @@
+{
+  "name": "@ai-animation-factory/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Database schemas and migrations for AI Animation Factory"
+}

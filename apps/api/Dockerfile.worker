@@ -1,0 +1,24 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache ffmpeg python3 make g++
+
+FROM base AS builder
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml turbo.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+COPY packages/shared/ ./packages/shared/
+COPY apps/api/ ./apps/api/
+RUN pnpm --filter @ai-animation-factory/shared build
+RUN pnpm --filter @ai-animation-factory/api build
+
+FROM base AS production
+WORKDIR /app
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/node_modules ./node_modules
+WORKDIR /app/apps/api
+RUN mkdir -p logs tmp
+ENV NODE_ENV=production
+CMD ["node", "dist/workers/index.js"]
