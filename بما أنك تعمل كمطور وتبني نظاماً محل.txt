@@ -1,0 +1,179 @@
+بما أنك تعمل كمطور وتبني نظاماً محلياً، فالفحص الاحترافي يجب أن يشمل **3 مستويات**:
+
+1️⃣ فحص بيئة Node
+2️⃣ فحص مشروع Next.js
+3️⃣ فحص Dashboard و API
+
+سأعطيك **أوامر تشخيص حقيقية يستخدمها المطورون**.
+
+---
+
+# 1️⃣ فحص البيئة بالكامل
+
+نفّذ هذا في PowerShell:
+
+```powershell
+node -v
+npm -v
+git --version
+```
+
+يجب أن ترى إصدارات مثل:
+
+```
+v24.x
+npm 11.x
+git 2.x
+```
+
+وثائق Node الرسمية:
+[https://nodejs.org/en/docs](https://nodejs.org/en/docs)
+
+---
+
+# 2️⃣ فحص مشروع Next.js
+
+ادخل المشروع:
+
+```powershell
+cd C:\ALI_WORKSPACE\ali-dashboard
+```
+
+ثم نفّذ:
+
+```powershell
+npm run build
+```
+
+هذا الأمر يقوم بـ:
+
+```
+compile
+type checking
+lint
+production test
+```
+
+وهو اختبار أساسي في Next.js.
+
+الوثائق:
+[https://nextjs.org/docs/app/building-your-application/deploying](https://nextjs.org/docs/app/building-your-application/deploying)
+
+إذا انتهى بدون أخطاء فالنظام سليم.
+
+---
+
+# 3️⃣ فحص الحزم الأمنية
+
+نفّذ:
+
+```powershell
+npm audit
+```
+
+سيقوم npm بفحص:
+
+```
+security vulnerabilities
+dependencies issues
+```
+
+وثائق npm audit:
+[https://docs.npmjs.com/cli/v10/commands/npm-audit](https://docs.npmjs.com/cli/v10/commands/npm-audit)
+
+---
+
+# 4️⃣ فحص API الذي بنيناه
+
+افتح المتصفح واكتب:
+
+```
+http://localhost:3000/api/projects
+```
+
+إذا ظهر مثل:
+
+```
+["debate-engine","mediavorice-studio","test-project"]
+```
+
+فهذا يعني أن:
+
+```
+filesystem access ✔
+API ✔
+Next.js server ✔
+```
+
+---
+
+# 5️⃣ فحص الأداء
+
+نفّذ:
+
+```powershell
+npm run dev
+```
+
+وتأكد من ظهور:
+
+```
+Ready
+GET / 200
+```
+
+وهذا يعني أن السيرفر يعمل.
+
+---
+
+# 6️⃣ فحص المجلدات
+
+نفّذ:
+
+```powershell
+dir C:\ALI_WORKSPACE\01_PROJECTS
+```
+
+سيعرض المشاريع التي يقرأها Dashboard.
+
+---
+
+# أمر فحص شامل سريع
+
+يمكنك تشغيل هذا التسلسل:
+
+```powershell
+node -v
+npm -v
+git --version
+cd C:\ALI_WORKSPACE\ali-dashboard
+npm run build
+npm audit
+```
+
+هذا يعطيك **تشخيص كامل للنظام**.
+
+---
+
+# نصيحة هندسية مهمة
+
+أنت الآن بنيت فعلياً:
+
+```
+Local Dev Dashboard
+Filesystem Reader
+Project Manager
+```
+
+لكن ما يزال ينقصه:
+
+```
+project creation
+task tracking
+automation
+git integration
+```
+
+---
+
+إذا أردت، أستطيع أن أعطيك **أمر واحد فقط يبني نظام تشخيص كامل للمشروع مثل الذي تستخدمه شركات SaaS** ويظهر تقرير صحة النظام بالكامل.

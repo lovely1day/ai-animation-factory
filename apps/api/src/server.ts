@@ -1,68 +1,61 @@
-import { scheduler } from './scheduler/scheduler';
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import { env } from './config/env';
+import dotenv from 'dotenv';
 import { logger } from './utils/logger';
-import { apiRateLimit } from './middleware/rate-limit';
-import { errorHandler, notFound } from './middleware/error-handler';
-import { episodesRouter } from './routes/episodes.routes';
-import { generationRouter } from './routes/generation.routes';
-import { analyticsRouter } from './routes/analytics.routes';
-import { authRouter } from './routes/auth.routes';
-import { testRouter } from './routes/test.routes';
+
+dotenv.config();
 
 const app = express();
+// لضمان عدم التضارب، سنثبته على 4000 يدوياً الآن للتجربة
+const PORT = 4000; 
 
-// Security
-app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-  credentials: true,
-}));
+app.use(cors());
+app.use(express.json());
 
-// Logging
-app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate limiting
-app.use('/api', apiRateLimit);
-
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'API is running',
+    timestamp: new Date().toISOString() 
+  });
 });
 
-// Diagnostic routes (no auth required — for setup-and-test.ps1)
-app.use('/api/test', testRouter);
-
-// Application routes
-app.use('/api/auth', authRouter);
-app.use('/api/episodes', episodesRouter);
-app.use('/api/generation', generationRouter);
-app.use('/api/analytics', analyticsRouter);
-
-// Error handling
-app.use(notFound);
-app.use(errorHandler);
-
-async function start() {
-  try {
-    app.listen(env.API_PORT, () => {
-      logger.info(`API server running on port ${env.API_PORT}`);
-      logger.info(`Environment: ${env.NODE_ENV}`);
-    });
-  } catch (err) {
-    logger.error('Failed to start server', { error: err });
-    process.exit(1);
-  }
+// استيراد الروابط بطريقة أفضل لمعرفة الخطأ الحقيقي
+try {
+    const { generationRouter } = require('./routes/generation.routes');
+    if (generationRouter) {
+        app.use('/api/generation', generationRouter);
+        console.log("✅ Generation routes loaded successfully");
+    }
+} catch (e: any) {
+    console.error("❌ Critical error loading routes:", e.message);
 }
 
-start();
+// تشغيل السيرفر مع تحديد العنوان 0.0.0.0 لضمان وصول ويندوز إليه
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`
+  ################################################
+  🚀  Server listening on: http://localhost:${PORT}
+  🚀  Health check: http://localhost:${PORT}/health
+  ################################################
+  `);
+});
 
-export { app };
+// منع الإغلاق المفاجئ
+server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`🔴 Port ${PORT} is already in use. Please kill the process or change the port.`);
+    } else {
+        console.error('🔴 Server Error:', err);
+    }
+});
 
+process.on('uncaughtException', (err) => {
+  console.error('🔴 Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('🔴 Unhandled Rejection:', reason);
+});
+
+export default app;

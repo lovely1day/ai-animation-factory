@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+﻿import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { supabase } from '../config/supabase';
@@ -65,10 +65,11 @@ export async function login(email: string, password: string) {
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) throw new Error('Invalid credentials');
 
- const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
-  expiresIn: '7d'
-  } as jwt.SignOptions
-} as jwt.SignOptions); // ✅ Type assertion
+ const token = jwt.sign(
+  { userId: user.id, email: user.email },
+  env.JWT_SECRET,
+  { expiresIn: '7d' } as jwt.SignOptions
+); // âœ… Type assertion
 
 
 
@@ -80,4 +81,5 @@ export async function login(email: string, password: string) {
 
   return { token, user: { id: user.id, email: user.email, role: user.role, full_name: user.full_name } };
 }
+
 

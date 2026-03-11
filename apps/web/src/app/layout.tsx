@@ -15,9 +15,8 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Animation Factory - Create AI-Powered Animated Content',
-  description: 'Transform your ideas into stunning animated episodes with our AI-powered platform. Professional quality, unlimited creativity.',
-  keywords: ['AI', 'animation', 'video', 'content creation', 'SaaS'],
+  title: 'AI Animation Factory',
+  description: 'Create AI-powered animated content',
 };
 
 export default function RootLayout({
@@ -26,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang=\"en\" suppressHydrationWarning className=\"dark\">
-      <body className={${inter.variable}  font-sans}>
+    <html lang="en" suppressHydrationWarning className="dark">
+      <body className={`${inter.variable} ${cairo.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
