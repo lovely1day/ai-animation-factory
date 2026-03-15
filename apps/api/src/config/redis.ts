@@ -1,8 +1,8 @@
-import { Redis } from 'ioredis';
+import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger';
 
 // Redis configuration with fallback for local development
-const redisConfig = {
+const redisConfig: RedisOptions = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD || undefined,
@@ -20,16 +20,24 @@ const upstashConfig = {
 // Determine which Redis to use
 const useUpstash = !!upstashConfig.url && !!upstashConfig.token;
 
+// Redis connection configuration type
+interface RedisConnectionConfig {
+  host: string;
+  port: number;
+  password?: string;
+  tls?: Record<string, unknown>;
+}
+
 // Create Redis client
 export let redis: Redis;
-export let redisConnection: any;
+export let redisConnection: RedisConnectionConfig;
 
 try {
-  if (useUpstash) {
+  if (useUpstash && upstashConfig.url && upstashConfig.token) {
     // Upstash Redis configuration
     logger.info('Using Upstash Redis (HTTP REST)');
     redis = new Redis({
-      host: upstashConfig.url!.replace('https://', ''),
+      host: upstashConfig.url.replace('https://', ''),
       port: 443,
       password: upstashConfig.token,
       tls: {}, // Required for Upstash
@@ -44,7 +52,11 @@ try {
     // Standard Redis (local or Docker)
     logger.info(`Using Redis at ${redisConfig.host}:${redisConfig.port}`);
     redis = new Redis(redisConfig);
-    redisConnection = redisConfig;
+    redisConnection = {
+      host: redisConfig.host || 'localhost',
+      port: redisConfig.port || 6379,
+      password: redisConfig.password,
+    };
   }
 
   // Handle Redis events
@@ -63,8 +75,11 @@ try {
 } catch (error) {
   logger.error({ error }, 'Failed to initialize Redis');
   // Create a dummy Redis client for development
-  redis = {} as Redis;
-  redisConnection = redisConfig;
+  redis = new Redis({ lazyConnect: true });
+  redisConnection = {
+    host: redisConfig.host || 'localhost',
+    port: redisConfig.port || 6379,
+  };
 }
 
 // Health check function

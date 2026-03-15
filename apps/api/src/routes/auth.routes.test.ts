@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import { authRouter } from './auth.routes'
 
 // Mock middleware
@@ -12,7 +12,7 @@ vi.mock('../middleware/auth', () => ({
 }))
 
 vi.mock('../middleware/rate-limit', () => ({
-  authRateLimit: (req: any, res: any, next: any) => next()
+  authRateLimit: (_req: Request, _res: Response, next: NextFunction) => next()
 }))
 
 describe('Auth Routes', () => {
@@ -25,7 +25,7 @@ describe('Auth Routes', () => {
     app.use('/api/auth', authRouter)
     
     // Error handler
-    app.use((err: any, req: any, res: any, _next: any) => {
+    app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       res.status(500).json({ error: err.message })
     })
   })

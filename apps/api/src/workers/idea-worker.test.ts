@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Job } from 'bullmq'
+// Job type not used in these tests
 
 // Mock dependencies
 vi.mock('../services/idea-generator.service', () => ({
