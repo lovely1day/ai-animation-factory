@@ -209,7 +209,7 @@ episodesRouter.patch('/:id', async (req: AuthRequest, res: Response, next: NextF
     const body = schema.parse(req.body);
 
     // Update episode basic info
-    const updateData: any = {};
+    const updateData: Record<string, string | undefined> = {};
     if (body.title) updateData.title = body.title;
     if (body.description) updateData.description = body.description;
     if (body.status) updateData.status = body.status;
@@ -226,7 +226,7 @@ episodesRouter.patch('/:id', async (req: AuthRequest, res: Response, next: NextF
     // Update scenes if provided
     if (body.scenes && body.scenes.length > 0) {
       for (const scene of body.scenes) {
-        const sceneUpdate: any = {};
+        const sceneUpdate: Record<string, string | undefined> = {};
         if (scene.title) sceneUpdate.title = scene.title;
         if (scene.description) sceneUpdate.description = scene.description;
         if (scene.narration) sceneUpdate.narration = scene.narration;

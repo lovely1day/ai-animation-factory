@@ -115,7 +115,7 @@ jobsRouter.get('/queue-stats', async (_req: AuthRequest, res: Response, next: Ne
 
     for (const name of queueNames) {
       try {
-        const queue = (queues as any)[name];
+        const queue = queues[name as keyof typeof queues];
         if (queue) {
           const counts = await queue.getJobCounts('active', 'waiting', 'completed', 'failed', 'delayed');
           stats.push({ name, ...counts });

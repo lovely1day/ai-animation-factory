@@ -11,7 +11,17 @@ export const logger = pino({
   }
 });
 
-export function logRequest(req: any, res: any, duration: number) {
+interface RequestInfo {
+  method: string;
+  url: string;
+  get: (header: string) => string | undefined;
+}
+
+interface ResponseInfo {
+  statusCode: number;
+}
+
+export function logRequest(req: RequestInfo, res: ResponseInfo, duration: number) {
   logger.info({
     req: {
       method: req.method,

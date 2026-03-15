@@ -23,7 +23,7 @@ export async function checkCredits(userId: string, action: string): Promise<bool
   return data.credits >= cost;
 }
 
-export async function deductCredits(userId: string, action: string, metadata?: any) {
+export async function deductCredits(userId: string, action: string, metadata?: Record<string, unknown>) {
   const cost = CREDIT_COSTS[action as keyof typeof CREDIT_COSTS] || 1;
 
   // Use RPC for atomic credit deduction

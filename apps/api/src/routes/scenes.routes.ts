@@ -134,7 +134,7 @@ scenesRouter.patch('/:sceneId', async (req: AuthRequest, res: Response, next: Ne
     const { sceneId } = req.params;
     const { title, description, narration, dialogue, visual_prompt } = req.body;
 
-    const updateData: any = {};
+    const updateData: Record<string, string | undefined> = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (narration !== undefined) updateData.narration = narration;

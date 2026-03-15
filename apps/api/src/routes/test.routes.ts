@@ -113,7 +113,7 @@ testRouter.get('/queue-stats', async (_req: Request, res: Response) => {
           full_name: queue.name,
           worker_count: workers.length,
           ...counts,
-        } as any;
+        };
       })
     );
 

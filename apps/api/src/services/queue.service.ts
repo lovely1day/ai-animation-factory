@@ -32,8 +32,16 @@ export const queues = {
   get thumbnail() { return createQueue(JOB_QUEUE_NAMES?.THUMBNAIL, 'thumbnail-queue'); },
 };
 
+interface EpisodeGenerationOptions {
+  genre?: string;
+  target_audience?: string;
+  theme?: string;
+  scene_count?: number;
+  [key: string]: unknown;
+}
+
 export class QueueService {
-  async dispatchEpisodeGeneration(options: any = {}): Promise<string> {
+  async dispatchEpisodeGeneration(options: EpisodeGenerationOptions = {}): Promise<string> {
     // Create episode row first so workers have a valid UUID to update
     const { data: episode, error } = await supabase
       .from('episodes')
@@ -85,8 +93,8 @@ export class QueueService {
     return activeJobs.flat();
   }
 
-  async retryFailedJobs(queueName: string) {
-    const queue = (queues as any)[queueName];
+  async retryFailedJobs(queueName: keyof typeof queues) {
+    const queue = queues[queueName];
     if (!queue) throw new Error(`Queue ${queueName} not found`);
     
     const failedJobs = await queue.getFailed();
@@ -96,8 +104,8 @@ export class QueueService {
     return failedJobs.length;
   }
 
-  async cleanOldJobs(queueName: string, gracePeriodMs: number) {
-    const queue = (queues as any)[queueName];
+  async cleanOldJobs(queueName: keyof typeof queues, gracePeriodMs: number) {
+    const queue = queues[queueName];
     if (!queue) throw new Error(`Queue ${queueName} not found`);
     
     await queue.clean(gracePeriodMs, 'completed');

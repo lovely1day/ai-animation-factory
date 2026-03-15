@@ -2,9 +2,16 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
 
 // Supabase Storage client (uses service role for full access)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing required Supabase environment variables: SUPABASE_URL or SUPABASE_SERVICE_KEY');
+}
+
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
+  supabaseUrl,
+  supabaseKey,
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 

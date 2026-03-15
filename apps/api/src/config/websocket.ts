@@ -4,6 +4,44 @@ import { logger } from '../utils/logger';
 
 let io: SocketServer | null = null;
 
+// WebSocket event data interfaces
+interface EpisodeUpdateData {
+  status?: string;
+  title?: string;
+  description?: string;
+  thumbnail_url?: string;
+  video_url?: string;
+  [key: string]: unknown;
+}
+
+interface SceneUpdateData {
+  status?: string;
+  title?: string;
+  description?: string;
+  image_url?: string;
+  animation_url?: string;
+  [key: string]: unknown;
+}
+
+interface JobProgressData {
+  stage?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+interface GenerationCompleteData {
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  [key: string]: unknown;
+}
+
+interface ErrorDetails {
+  code?: string;
+  stack?: string;
+  [key: string]: unknown;
+}
+
 export function initWebSocket(server: HttpServer): SocketServer {
   io = new SocketServer(server, {
     cors: {
@@ -48,7 +86,7 @@ export function getIO(): SocketServer {
 }
 
 // Emit episode update
-export function emitEpisodeUpdate(episodeId: string, data: any) {
+export function emitEpisodeUpdate(episodeId: string, data: EpisodeUpdateData) {
   if (!io) return;
   io.to(`episode:${episodeId}`).emit('episode:update', {
     episodeId,
@@ -58,7 +96,7 @@ export function emitEpisodeUpdate(episodeId: string, data: any) {
 }
 
 // Emit scene update
-export function emitSceneUpdate(episodeId: string, sceneId: string, data: any) {
+export function emitSceneUpdate(episodeId: string, sceneId: string, data: SceneUpdateData) {
   if (!io) return;
   io.to(`episode:${episodeId}`).emit('scene:update', {
     episodeId,
@@ -69,7 +107,7 @@ export function emitSceneUpdate(episodeId: string, sceneId: string, data: any) {
 }
 
 // Emit job progress
-export function emitJobProgress(episodeId: string, jobType: string, progress: number, data?: any) {
+export function emitJobProgress(episodeId: string, jobType: string, progress: number, data?: JobProgressData) {
   if (!io) return;
   io.to(`episode:${episodeId}`).emit('job:progress', {
     episodeId,
@@ -81,7 +119,7 @@ export function emitJobProgress(episodeId: string, jobType: string, progress: nu
 }
 
 // Emit generation complete
-export function emitGenerationComplete(episodeId: string, data: any) {
+export function emitGenerationComplete(episodeId: string, data: GenerationCompleteData) {
   if (!io) return;
   io.to(`episode:${episodeId}`).emit('generation:complete', {
     episodeId,
@@ -98,7 +136,7 @@ export function emitGenerationComplete(episodeId: string, data: any) {
 }
 
 // Emit error
-export function emitError(episodeId: string, error: string, details?: any) {
+export function emitError(episodeId: string, error: string, details?: ErrorDetails) {
   if (!io) return;
   io.to(`episode:${episodeId}`).emit('generation:error', {
     episodeId,
