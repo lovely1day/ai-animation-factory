@@ -1,10 +1,14 @@
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 import { VideoAssemblyInput } from '@ai-animation-factory/shared';
 import { storageService } from './storage.service';
 import { logger } from '../utils/logger';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
+
+// Use bundled ffmpeg-static binary if system ffmpeg is not available
+if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
 
 export interface VideoAssemblyResult {
   video_url: string;
@@ -14,10 +18,10 @@ export interface VideoAssemblyResult {
 
 export class VideoAssemblyService {
   async assemble(input: VideoAssemblyInput): Promise<VideoAssemblyResult> {
-    logger.info('Starting video assembly', {
+    logger.info({
       episode_id: input.episode_id,
       scene_count: input.scenes.length,
-    });
+    }, 'Starting video assembly');
 
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `episode-${input.episode_id}-`));
 
@@ -100,10 +104,10 @@ export class VideoAssemblyService {
       const videoBuffer = await fs.readFile(outputPath);
       const uploadedUrl = await storageService.uploadBuffer(videoBuffer, fileKey, 'video/mp4');
 
-      logger.info('Video assembled and uploaded', {
+      logger.info({
         episode_id: input.episode_id,
         duration: totalDuration,
-      });
+      }, 'Video assembled and uploaded');
 
       return {
         video_url: uploadedUrl,
@@ -123,8 +127,8 @@ export class VideoAssemblyService {
         .addOption('-pix_fmt', 'yuv420p')
         .fps(24)
         .output(outputPath)
-        .on('end', resolve)
-        .on('error', reject)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
         .run();
     });
   }
@@ -137,8 +141,8 @@ export class VideoAssemblyService {
         .videoCodec('libx264')
         .addOption('-pix_fmt', 'yuv420p')
         .output(outputPath)
-        .on('end', resolve)
-        .on('error', reject)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
         .run();
     });
   }
@@ -186,8 +190,8 @@ export class VideoAssemblyService {
         .audioCodec('libmp3lame')
         .audioBitrate('192k')
         .output(outputPath)
-        .on('end', resolve)
-        .on('error', reject)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
         .run();
     });
   }
@@ -200,8 +204,8 @@ export class VideoAssemblyService {
         .audioCodec('aac')
         .output(outputPath)
         .outputOptions(['-shortest'])
-        .on('end', resolve)
-        .on('error', reject)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
         .run();
     });
   }

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض السيناريو - AI Animation Factory</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --purple-primary: #9333ea;
+            --purple-hover: #7c3aed;
+            --purple-light: #a855f7;
+            --pink-primary: #ec4899;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(147, 51, 234, 0.2);
+            border-color: var(--purple-primary);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .input-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .input-section h2 {
+            color: var(--purple-light);
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        input {
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            font-size: 16px;
+            min-width: 300px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--purple-primary);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-hover));
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .script-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+            display: none;
+        }
+
+        .script-header {
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .script-header h1 {
+            font-size: 36px;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }
+
+        .meta-info {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .meta-tag {
+            background: rgba(147, 51, 234, 0.15);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+        }
+
+        .scene {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            border-right: 4px solid var(--purple-primary);
+        }
+
+        .scene-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .scene-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-hover));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .scene h3 {
+            color: var(--purple-light);
+            font-size: 22px;
+        }
+
+        .scene-content {
+            padding-right: 20px;
+        }
+
+        .scene-section {
+            margin-bottom: 20px;
+        }
+
+        .scene-section h4 {
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .scene-section p {
+            font-size: 16px;
+            line-height: 1.8;
+            color: var(--text-primary);
+        }
+
+        .narration-box, .dialogue-box {
+            background: rgba(147, 51, 234, 0.1);
+            border-right: 3px solid var(--purple-primary);
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin: 15px 0;
+            font-style: italic;
+        }
+
+        .dialogue-box {
+            background: rgba(236, 72, 153, 0.1);
+            border-right-color: var(--pink-primary);
+        }
+
+        .visual-prompt {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border: 1px dashed var(--border-color);
+        }
+
+        .duration-badge {
+            display: inline-block;
+            background: var(--success);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border-color);
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--purple-primary);
+            background: rgba(147, 51, 234, 0.1);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span>🎬</span>
+            <span>AI Animation Factory</span>
+        </div>
+        <nav>
+            <a href="http://localhost:3000" class="nav-btn">🏠 الرئيسية</a>
+            <a href="monitor.html" class="nav-btn">📊 المراقب</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Input Section -->
+        <div class="input-section" id="inputSection">
+            <h2>📜 عرض السيناريو</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                أدخل رقم الحلقة (ID) لعرض السيناريو الكامل مع الحوار
+            </p>
+            <div class="input-group">
+                <input type="text" id="episodeId" placeholder="مثال: 6bb250dd-c27a-47dc-88c6..." />
+                <button onclick="loadScript()">📖 عرض السيناريو</button>
+            </div>
+            <div id="message"></div>
+        </div>
+
+        <!-- Script Display -->
+        <div class="script-container" id="scriptContainer">
+            <div class="script-header">
+                <h1 id="episodeTitle">عنوان الحلقة</h1>
+                <p id="episodeDescription" style="color: var(--text-secondary); margin-top: 10px;"></p>
+                <div class="meta-info">
+                    <span class="meta-tag" id="metaGenre">🎭 النوع</span>
+                    <span class="meta-tag" id="metaTheme">💡 الموضوع</span>
+                    <span class="meta-tag" id="metaScenes">🎬 عدد المشاهد</span>
+                    <span class="meta-tag" id="metaDuration">⏱️ المدة</span>
+                </div>
+            </div>
+
+            <div id="scenesContainer"></div>
+
+            <div class="actions">
+                <button onclick="downloadScript()">📥 تحميل السيناريو (TXT)</button>
+                <button onclick="window.print()" class="btn-secondary">🖨️ طباعة</button>
+                <button onclick="editScript()" class="btn-secondary">✏️ تعديل</button>
+                <button onclick="backToList()" class="btn-secondary">🔙 العودة</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3004';
+
+        async function loadScript() {
+            const id = document.getElementById('episodeId').value.trim();
+            if (!id) {
+                showMessage('⚠️ أدخل رقم الحلقة', 'error');
+                return;
+            }
+
+            showMessage('⏳ جاري تحميل السيناريو...', 'loading');
+
+            try {
+                const res = await fetch(`${API_URL}/api/scenes/${id}/script`);
+                const data = await res.json();
+
+                if (data.success) {
+                    displayScript(data.data);
+                } else {
+                    showMessage('❌ لم يتم العثور على السيناريو', 'error');
+                }
+            } catch (e) {
+                showMessage('❌ خطأ في الاتصال: ' + e.message, 'error');
+            }
+        }
+
+        function displayScript(script) {
+            // Hide input, show script
+            document.getElementById('inputSection').style.display = 'none';
+            document.getElementById('scriptContainer').style.display = 'block';
+
+            // Header info
+            document.getElementById('episodeTitle').textContent = script.episode.title || 'بدون عنوان';
+            document.getElementById('episodeDescription').textContent = script.episode.description || '';
+            document.getElementById('metaGenre').textContent = `🎭 ${script.episode.genre || '-'}`;
+            document.getElementById('metaTheme').textContent = `💡 ${script.episode.theme || '-'}`;
+            document.getElementById('metaScenes').textContent = `🎬 ${script.total_scenes} مشهد`;
+            document.getElementById('metaDuration').textContent = `⏱️ ${script.total_duration} ثانية`;
+
+            // Scenes
+            const container = document.getElementById('scenesContainer');
+            container.innerHTML = script.scenes.map(scene => `
+                <div class="scene">
+                    <div class="scene-header">
+                        <div class="scene-number">${scene.scene_number}</div>
+                        <h3>${scene.title || `مشهد ${scene.scene_number}`}</h3>
+                    </div>
+                    
+                    <div class="scene-content">
+                        ${scene.description ? `
+                            <div class="scene-section">
+                                <h4>📖 الوصف</h4>
+                                <p>${scene.description}</p>
+                            </div>
+                        ` : ''}
+                        
+                        ${scene.visual_prompt ? `
+                            <div class="scene-section">
+                                <h4>🎨 وصف المشهد البصري</h4>
+                                <div class="visual-prompt">${scene.visual_prompt}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${scene.narration ? `
+                            <div class="scene-section">
+                                <h4>🎙️ التعليق الصوتي</h4>
+                                <div class="narration-box">"${scene.narration}"</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${scene.dialogue ? `
+                            <div class="scene-section">
+                                <h4>💬 الحوار</h4>
+                                <div class="dialogue-box">"${scene.dialogue}"</div>
+                            </div>
+                        ` : ''}
+                        
+                        <span class="duration-badge">⏱️ ${scene.duration_seconds || 8} ثانية</span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        function showMessage(msg, type) {
+            const div = document.getElementById('message');
+            div.className = type === 'error' ? 'error' : 'loading';
+            div.textContent = msg;
+        }
+
+        async function downloadScript() {
+            const id = document.getElementById('episodeId').value.trim();
+            if (!id) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/scenes/${id}/export`);
+                const text = await res.text();
+                
+                const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `script-${id}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('❌ خطأ في التحميل: ' + e.message);
+            }
+        }
+
+        function editScript() {
+            alert('💡 ميزة التعديل قريباً! يمكنك استخدام صفحة المراقب لتعديل المشاهد.');
+        }
+
+        function backToList() {
+            document.getElementById('inputSection').style.display = 'block';
+            document.getElementById('scriptContainer').style.display = 'none';
+            document.getElementById('message').textContent = '';
+        }
+
+        // Load from URL parameter
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const episodeId = params.get('episode');
+            if (episodeId) {
+                document.getElementById('episodeId').value = episodeId;
+                loadScript();
+            }
+        });
+    </script>
+</body>
+</html>

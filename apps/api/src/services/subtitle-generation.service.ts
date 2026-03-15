@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
+import ffmpeg from 'fluent-ffmpeg';
 
 export interface SubtitleGenerationResult {
   subtitle_url: string;
@@ -14,7 +15,7 @@ export interface SubtitleGenerationResult {
 
 export class SubtitleGenerationService {
   async generate(input: SubtitleGenerationInput): Promise<SubtitleGenerationResult> {
-    logger.info('Generating subtitles', { episode_id: input.episode_id });
+    logger.info({ episode_id: input.episode_id }, 'Generating subtitles');
 
     // Download video to temp file
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'subtitles-'));
@@ -52,7 +53,7 @@ export class SubtitleGenerationService {
         'text/plain'
       );
 
-      logger.info('Subtitles generated', { episode_id: input.episode_id });
+      logger.info({ episode_id: input.episode_id }, 'Subtitles generated');
 
       return {
         subtitle_url: uploadedUrl,
@@ -66,7 +67,6 @@ export class SubtitleGenerationService {
 
   private extractAudio(videoPath: string, audioPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const ffmpeg = require('fluent-ffmpeg');
       ffmpeg(videoPath)
         .noVideo()
         .audioCodec('libmp3lame')

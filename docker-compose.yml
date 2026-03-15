@@ -1,40 +1,76 @@
-﻿version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
     ports:
-      - \"6379:6379\"
+      - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
+  # API Server
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
     ports:
-      - \"3001:3001\"
+      - "3001:3001"
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
     env_file:
       - .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
+  # Workers (All 9 Workers in one service)
+  workers:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile.worker
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    # Workers don't need exposed ports, they communicate via Redis
+
+  # Web Frontend
   web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
     ports:
-      - \"3000:3000\"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://api:3001
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

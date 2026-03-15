@@ -9,7 +9,7 @@ export interface ThumbnailResult {
 
 export class ThumbnailService {
   async generate(input: ThumbnailGenerationInput): Promise<ThumbnailResult> {
-    logger.info('Generating thumbnail', { episode_id: input.episode_id });
+    logger.info({ episode_id: input.episode_id }, 'Generating thumbnail');
 
     const result = await imageGenerationService.generateThumbnail(
       input.episode_id,

@@ -3,10 +3,16 @@ dist/
 .next/
 .turbo/
 *.log
+logs/
 .env
 .env.local
 .env.*.local
+apps/*/.env
+apps/*/.env.local
 coverage/
 tmp/
 .DS_Store
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify

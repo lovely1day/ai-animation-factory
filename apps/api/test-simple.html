@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1a1a2e; 
+            color: #fff; 
+            padding: 20px;
+            direction: rtl;
+        }
+        .box { 
+            background: #16213e; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 10px;
+        }
+        button { 
+            background: #00d4aa; 
+            border: none; 
+            padding: 10px 20px; 
+            margin: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled { background: #555; }
+        #logs { 
+            background: #0f0f23; 
+            padding: 15px; 
+            height: 300px; 
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 5px;
+        }
+        .log { padding: 3px 0; border-bottom: 1px solid #333; }
+        .error { color: #e74c3c; }
+        .success { color: #00d4aa; }
+        input, select { 
+            padding: 8px; 
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 AI Animation Factory - WebSocket Test</h1>
+    
+    <div class="box">
+        <h3>حالة الاتصال: <span id="status">غير متصل</span></h3>
+        <button onclick="connect()" id="btnConnect">اتصال</button>
+        <button onclick="disconnect()" id="btnDisconnect" disabled>قطع</button>
+    </div>
+
+    <div class="box">
+        <h3>إنشاء حلقة</h3>
+        <select id="genre">
+            <option value="comedy">كوميديا</option>
+            <option value="adventure">مغامرة</option>
+        </select>
+        <select id="audience">
+            <option value="children">أطفال</option>
+            <option value="teens">مراهقين</option>
+        </select>
+        <button onclick="createEpisode()" id="btnCreate" disabled>إنشاء</button>
+    </div>
+
+    <div class="box">
+        <h3>السجل</h3>
+        <div id="logs"></div>
+        <button onclick="clearLogs()">مسح</button>
+    </div>
+
+    <!-- Socket.IO Client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <script>
+        let socket = null;
+        
+        function log(msg, type = '') {
+            const div = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            div.innerHTML += `<div class="log ${className}">[${time}] ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function updateStatus(text, isConnected) {
+            document.getElementById('status').textContent = text;
+            document.getElementById('btnConnect').disabled = isConnected;
+            document.getElementById('btnDisconnect').disabled = !isConnected;
+            document.getElementById('btnCreate').disabled = !isConnected;
+        }
+
+        function connect() {
+            try {
+                log('جاري الاتصال...');
+                
+                socket = io('http://localhost:3004', {
+                    transports: ['websocket', 'polling'],
+                    timeout: 5000
+                });
+
+                socket.on('connect', function() {
+                    log('✅ تم الاتصال بنجاح!', 'success');
+                    updateStatus('متصل ✅', true);
+                });
+
+                socket.on('disconnect', function() {
+                    log('❌ تم قطع الاتصال', 'error');
+                    updateStatus('غير متصل', false);
+                });
+
+                socket.on('job:progress', function(data) {
+                    log(`📊 ${data.jobType}: ${data.progress}%`);
+                });
+
+                socket.on('job:completed', function(data) {
+                    log(`✅ اكتمل: ${data.jobType}`, 'success');
+                });
+
+                socket.on('episode:update', function(data) {
+                    log(`📋 حلقة: ${data.type}`);
+                    if (data.sceneCount) {
+                        log(`   عدد المشاهد: ${data.sceneCount}`);
+                    }
+                });
+
+                socket.on('scene:update', function(data) {
+                    log(`🎬 مشهد ${data.scene_number}: ${data.type}`);
+                });
+
+                socket.on('connect_error', function(err) {
+                    log('❌ خطأ: ' + err.message, 'error');
+                    updateStatus('فشل الاتصال', false);
+                });
+
+                socket.on('error', function(err) {
+                    log('❌ خطأ Socket: ' + err, 'error');
+                });
+
+            } catch (e) {
+                log('❌ خطأ: ' + e.message, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        async function createEpisode() {
+            const genre = document.getElementById('genre').value;
+            const audience = document.getElementById('audience').value;
+            
+            try {
+                log('جاري إنشاء الحلقة...');
+                
+                const res = await fetch('http://localhost:3004/api/episodes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ genre, targetAudience: audience })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    log(`✅ تم إنشاء الحلقة: ${data.data.id}`, 'success');
+                    if (socket && socket.connected) {
+                        socket.emit('subscribe', data.data.id);
+                        log(`📡 تم الاشتراك في التحديثات`);
+                    }
+                } else {
+                    log('❌ فشل الإنشاء', 'error');
+                }
+            } catch (e) {
+                log('❌ خطأ: ' + e.message, 'error');
+            }
+        }
+        
+        // Initial log
+        log('صفحة الاختبار جاهزة. اضغط "اتصال" للبدء.');
+    </script>
+</body>
+</html>

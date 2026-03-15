@@ -26,13 +26,30 @@ export async function checkCredits(userId: string, action: string): Promise<bool
 export async function deductCredits(userId: string, action: string, metadata?: any) {
   const cost = CREDIT_COSTS[action as keyof typeof CREDIT_COSTS] || 1;
 
-  const { error: updateError } = await supabase
-    .from('user_credits')
-    .update({ 
-      credits: supabase.raw('credits - ?', [cost]),
-      used_credits: supabase.raw('used_credits + ?', [cost])
-    })
-    .eq('user_id', userId);
+  // Use RPC for atomic credit deduction
+  const { error: updateError } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_cost: cost
+  });
+  
+  // Fallback: simple update (may have race conditions)
+  if (updateError) {
+    const { data: current } = await supabase
+      .from('user_credits')
+      .select('credits, used_credits')
+      .eq('user_id', userId)
+      .single();
+      
+    if (current) {
+      await supabase
+        .from('user_credits')
+        .update({ 
+          credits: current.credits - cost,
+          used_credits: (current.used_credits || 0) + cost
+        })
+        .eq('user_id', userId);
+    }
+  }
 
   if (updateError) {
     logger.error({ updateError, userId }, 'Failed to deduct credits');

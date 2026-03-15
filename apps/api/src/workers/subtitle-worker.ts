@@ -10,7 +10,7 @@ export function createSubtitleWorker() {
     JOB_QUEUE_NAMES.SUBTITLE,
     async (job: Job) => {
       const { episode_id, video_url } = job.data;
-      logger.info('Processing subtitle generation job', { job_id: job.id, episode_id });
+      logger.info({ job_id: job.id, episode_id }, 'Processing subtitle generation job');
 
       await job.updateProgress(10);
 
@@ -34,7 +34,7 @@ export function createSubtitleWorker() {
       });
 
       await job.updateProgress(100);
-      logger.info('Subtitle generation completed', { episode_id });
+      logger.info({ episode_id }, 'Subtitle generation completed');
 
       return { episode_id, subtitle_url: result.subtitle_url };
     },

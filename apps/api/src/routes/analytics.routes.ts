@@ -90,7 +90,10 @@ analyticsRouter.get('/views-by-genre', async (_req: AuthRequest, res: Response, 
     if (error) throw error;
 
     const byGenre = (data || []).reduce((acc, row) => {
-      const genre = (row.episodes as { genre: string } | null)?.genre || 'unknown';
+      const episodes = row.episodes as { genre: string } | { genre: string }[] | null;
+      const genre = Array.isArray(episodes) 
+        ? episodes[0]?.genre 
+        : episodes?.genre || 'unknown';
       acc[genre] = (acc[genre] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);

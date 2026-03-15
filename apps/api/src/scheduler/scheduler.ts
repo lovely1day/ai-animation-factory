@@ -63,7 +63,7 @@ export class Scheduler {
         'children', 'teens', 'adults', 'general',
       ]) as string[];
 
-      logger.info('Auto-generating episodes', { count: episodesPerHour });
+      logger.info({ count: episodesPerHour }, 'Auto-generating episodes');
 
       for (let i = 0; i < episodesPerHour; i++) {
         const genre = genres[Math.floor(Math.random() * genres.length)];
@@ -77,7 +77,7 @@ export class Scheduler {
 
       logger.info(`Dispatched ${episodesPerHour} episode generation jobs`);
     } catch (err) {
-      logger.error('Failed to auto-generate episodes', { error: (err as Error).message });
+      logger.error({ error: (err as Error).message }, 'Failed to auto-generate episodes');
     }
   }
 
@@ -99,11 +99,11 @@ export class Scheduler {
           const queueName = this.jobTypeToQueueName(job.job_type);
           if (queueName) await queueService.retryFailedJobs(queueName);
         } catch (err) {
-          logger.warn('Failed to retry job', { job_type: job.job_type, error: (err as Error).message });
+          logger.warn({ job_type: job.job_type, error: (err as Error).message }, 'Failed to retry job');
         }
       }
     } catch (err) {
-      logger.error('Failed to retry jobs', { error: (err as Error).message });
+      logger.error({ error: (err as Error).message }, 'Failed to retry jobs');
     }
   }
 
@@ -126,11 +126,11 @@ export class Scheduler {
         .lt('completed_at', cutoffDate);
 
       // Clean BullMQ queues
-      await queueService.cleanOldJobs();
+      await queueService.cleanOldJobs('idea', 7 * 24 * 60 * 60 * 1000);  // Clean 7 days old
 
-      logger.info('Cleanup completed', { cutoff_date: cutoffDate });
+      logger.info({ cutoff_date: cutoffDate }, 'Cleanup completed');
     } catch (err) {
-      logger.error('Cleanup failed', { error: (err as Error).message });
+      logger.error({ error: (err as Error).message }, 'Cleanup failed');
     }
   }
 
@@ -156,7 +156,7 @@ export class Scheduler {
           .eq('id', episodeId);
       }
     } catch (err) {
-      logger.error('Metrics update failed', { error: (err as Error).message });
+      logger.error({ error: (err as Error).message }, 'Metrics update failed');
     }
   }
 

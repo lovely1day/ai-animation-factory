@@ -10,7 +10,7 @@ export function createAnimationWorker() {
     JOB_QUEUE_NAMES.ANIMATION,
     async (job: Job) => {
       const { episode_id, scene_id, scene_number, image_url, prompt, duration } = job.data;
-      logger.info('Processing animation job', { job_id: job.id, episode_id, scene_number });
+      logger.info({ job_id: job.id, episode_id, scene_number }, 'Processing animation job');
 
       await job.updateProgress(10);
 
@@ -47,7 +47,7 @@ export function createAnimationWorker() {
       await checkAndTriggerAssembly(episode_id);
 
       await job.updateProgress(100);
-      logger.info('Animation generation completed', { episode_id, scene_id });
+      logger.info({ episode_id, scene_id }, 'Animation generation completed');
 
       return { episode_id, scene_id, animation_url: result.animation_url };
     },
@@ -104,5 +104,5 @@ async function checkAndTriggerAssembly(episodeId: string) {
     { ...defaultJobOptions, priority: 5 }
   );
 
-  logger.info('Video assembly triggered', { episode_id: episodeId });
+  logger.info({ episode_id: episodeId }, 'Video assembly triggered');
 }

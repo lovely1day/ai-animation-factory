@@ -1,4 +1,4 @@
-import { openai } from '../config/openai';
+import { geminiJSON } from '../config/gemini';
 import { IdeaGenerationInput, IdeaGenerationOutput } from '@ai-animation-factory/shared';
 import { logger } from '../utils/logger';
 
@@ -24,7 +24,7 @@ const AUDIENCE_PROMPTS: Record<string, string> = {
 
 export class IdeaGeneratorService {
   async generate(input: IdeaGenerationInput): Promise<IdeaGenerationOutput> {
-    logger.info('Generating episode idea', input);
+    logger.info({ genre: input.genre, audience: input.target_audience }, 'Generating episode idea');
 
     const genreHint = GENRES_PROMPTS[input.genre] || input.genre;
     const audienceHint = AUDIENCE_PROMPTS[input.target_audience] || input.target_audience;
@@ -36,7 +36,7 @@ Genre: ${input.genre} (${genreHint})
 Target Audience: ${input.target_audience} (${audienceHint})
 ${themeHint}
 
-Create a compelling, unique episode idea. Return a JSON object with:
+Create a compelling, unique episode idea. Return a JSON object with exactly this structure:
 {
   "title": "Episode title (5-10 words, catchy)",
   "description": "2-3 sentence synopsis",
@@ -48,20 +48,8 @@ Create a compelling, unique episode idea. Return a JSON object with:
 
 Be creative, original, and ensure the content is appropriate for the target audience.`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.9,
-      max_tokens: 500,
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) throw new Error('Empty response from OpenAI');
-
-    const idea = JSON.parse(content) as IdeaGenerationOutput;
-    logger.info('Episode idea generated', { title: idea.title });
-
+    const idea = await geminiJSON<IdeaGenerationOutput>(prompt);
+    logger.info({ title: idea.title }, 'Episode idea generated');
     return idea;
   }
 }

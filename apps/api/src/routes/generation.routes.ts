@@ -11,7 +11,7 @@ generationRouter.get('/stats', async (req, res) => {
     const stats = await queueService.getQueueStats();
     res.json(stats);
   } catch (error) {
-    logger.error('Failed to get queue stats', error);
+    logger.error({ error: (error as Error).message }, 'Failed to get queue stats');
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
@@ -28,7 +28,7 @@ generationRouter.post('/dispatch', async (req, res) => {
     });
     res.json({ success: true, job_id: jobId });
   } catch (error) {
-    logger.error('Failed to dispatch generation', error);
+    logger.error({ error: (error as Error).message }, 'Failed to dispatch generation');
     res.status(500).json({ error: 'Failed to dispatch job' });
   }
 });
@@ -38,7 +38,7 @@ generationRouter.get('/active', async (req, res) => {
   try {
     const activeJobs = await queueService.getActiveJobs();
     res.json(activeJobs);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch active jobs' });
   }
 });

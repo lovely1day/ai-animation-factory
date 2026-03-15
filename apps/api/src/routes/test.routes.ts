@@ -91,7 +91,7 @@ testRouter.get('/env', (_req: Request, res: Response) => {
       runway:      isSet(env.RUNWAY_API_KEY),
       elevenlabs:  isSet(env.ELEVENLABS_API_KEY),
       mubert:      isSet(env.MUBERT_API_KEY),
-      storage_r2:  isSet(env.R2_ENDPOINT) && isSet(env.R2_ACCESS_KEY_ID) && isSet(env.R2_SECRET_ACCESS_KEY),
+      storage:     isSet(env.SUPABASE_URL) && isSet(env.STORAGE_BUCKET),
       jwt:         isSet(env.JWT_SECRET),
     },
   });
@@ -113,7 +113,7 @@ testRouter.get('/queue-stats', async (_req: Request, res: Response) => {
           full_name: queue.name,
           worker_count: workers.length,
           ...counts,
-        };
+        } as any;
       })
     );
 

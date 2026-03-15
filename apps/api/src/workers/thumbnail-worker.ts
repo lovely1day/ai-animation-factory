@@ -10,7 +10,7 @@ export function createThumbnailWorker() {
     JOB_QUEUE_NAMES.THUMBNAIL,
     async (job: Job) => {
       const { episode_id, title, genre } = job.data;
-      logger.info('Processing thumbnail generation job', { job_id: job.id, episode_id });
+      logger.info({ job_id: job.id, episode_id }, 'Processing thumbnail generation job');
 
       await job.updateProgress(10);
 
@@ -36,7 +36,7 @@ export function createThumbnailWorker() {
       });
 
       await job.updateProgress(100);
-      logger.info('Thumbnail generation completed', { episode_id });
+      logger.info({ episode_id }, 'Thumbnail generation completed');
 
       return { episode_id, thumbnail_url: result.thumbnail_url };
     },

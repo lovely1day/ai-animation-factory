@@ -11,7 +11,7 @@ export function createAssemblyWorker() {
     JOB_QUEUE_NAMES.ASSEMBLY,
     async (job: Job) => {
       const { episode_id, scenes, music_url } = job.data;
-      logger.info('Processing video assembly job', { job_id: job.id, episode_id });
+      logger.info({ job_id: job.id, episode_id }, 'Processing video assembly job');
 
       // Record job start
       await supabase.from('generation_jobs').insert({
@@ -83,11 +83,11 @@ export function createAssemblyWorker() {
           .from('episodes')
           .update({ status: 'published', published_at: new Date().toISOString() })
           .eq('id', episode_id);
-        logger.info('Episode auto-published', { episode_id });
+        logger.info({ episode_id }, 'Episode auto-published');
       }
 
       await job.updateProgress(100);
-      logger.info('Video assembly completed', { episode_id, video_url: result.video_url });
+      logger.info({ episode_id, video_url: result.video_url }, 'Video assembly completed');
 
       return { episode_id, video_url: result.video_url };
     },

@@ -10,7 +10,7 @@ export function createMusicWorker() {
     JOB_QUEUE_NAMES.MUSIC,
     async (job: Job) => {
       const { episode_id, genre, mood, duration } = job.data;
-      logger.info('Processing music generation job', { job_id: job.id, episode_id });
+      logger.info({ job_id: job.id, episode_id }, 'Processing music generation job');
 
       await job.updateProgress(10);
 
@@ -29,7 +29,7 @@ export function createMusicWorker() {
       });
 
       await job.updateProgress(100);
-      logger.info('Music generation completed', { episode_id });
+      logger.info({ episode_id }, 'Music generation completed');
 
       return { episode_id, music_url: result.music_url };
     },

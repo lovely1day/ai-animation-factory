@@ -1,15 +1,27 @@
-import { ConnectionOptions } from 'bullmq';
-import dotenv from 'dotenv';
+import IORedis, { RedisOptions } from 'ioredis';
+import { env } from './env';
+import { logger } from '../utils/logger';
 
-dotenv.config();
-
-export const redisConnection: ConnectionOptions = {
-  // نستخدم 127.0.0.1 لضمان استقرار الاتصال على ويندوز
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+const redisOptions: RedisOptions = {
+  host: env.REDIS_HOST,
+  port: env.REDIS_PORT,
+  password: env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
-  retryStrategy: (times) => {
-    return Math.min(times * 50, 2000);
-  }
+  lazyConnect: true,
+};
+
+export const redis = new IORedis(redisOptions);
+
+redis.on('connect', () => logger.info('Redis connected'));
+redis.on('error', (err) => logger.error({ error: err.message }, 'Redis error'));
+redis.on('close', () => logger.warn('Redis connection closed'));
+
+// Separate connection options object for BullMQ workers/queues
+export const redisConnection = {
+  host: env.REDIS_HOST,
+  port: env.REDIS_PORT,
+  password: env.REDIS_PASSWORD || undefined,
+  maxRetriesPerRequest: null as null,
+  enableReadyCheck: false,
 };

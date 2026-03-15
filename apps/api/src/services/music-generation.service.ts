@@ -2,7 +2,7 @@ import { MusicGenerationInput } from '@ai-animation-factory/shared';
 import { storageService } from './storage.service';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
-import { sleep } from '@ai-animation-factory/shared';
+import { sleep } from '../utils/sleep';
 
 export interface MusicGenerationResult {
   music_url: string;
@@ -29,7 +29,18 @@ export class MusicGenerationService {
   private readonly baseUrl = 'https://api-b2b.mubert.com/v2';
 
   async generate(input: MusicGenerationInput): Promise<MusicGenerationResult> {
-    logger.info('Generating background music', { episode_id: input.episode_id, genre: input.genre });
+    logger.info({ episode_id: input.episode_id, genre: input.genre }, 'Generating background music');
+
+    // Skip Mubert if not configured
+    const mubertReady = this.apiKey && !this.apiKey.includes('your-') && this.apiKey.length > 10;
+    if (!mubertReady) {
+      logger.warn({ episode_id: input.episode_id }, 'Mubert not configured — skipping music generation');
+      return {
+        music_url: '',
+        file_key: `episodes/${input.episode_id}/music.mp3`,
+        duration_seconds: Math.max(30, input.duration),
+      };
+    }
 
     const genreConfig = GENRE_MOOD_MAP[input.genre] || { mood: 'ambient', tags: ['background', 'ambient'] };
     const tags = genreConfig.tags.join(',');
@@ -88,7 +99,7 @@ export class MusicGenerationService {
     const fileKey = `episodes/${input.episode_id}/music.mp3`;
     const uploadedUrl = await storageService.uploadBuffer(buffer, fileKey, 'audio/mpeg');
 
-    logger.info('Music generated and uploaded', { episode_id: input.episode_id, duration });
+    logger.info({ episode_id: input.episode_id, duration }, 'Music generated and uploaded');
 
     return {
       music_url: uploadedUrl,

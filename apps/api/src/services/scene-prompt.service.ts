@@ -13,7 +13,7 @@ export class ScenePromptService {
    * Enhances a scene's visual prompt for optimal image generation results
    */
   async enhance(scene: SceneScript, genre: string, audience: string): Promise<EnhancedScenePrompt> {
-    logger.debug('Enhancing scene prompt', { scene_number: scene.scene_number });
+    logger.debug({ scene_number: scene.scene_number }, 'Enhancing scene prompt');
 
     const styleMap: Record<string, string> = {
       'adventure': 'epic animated movie style, dynamic composition, vivid colors',
@@ -55,7 +55,7 @@ export class ScenePromptService {
     genre: string,
     audience: string
   ): Promise<EnhancedScenePrompt[]> {
-    logger.info('Generating batch scene prompts', { count: scenes.length });
+    logger.info({ count: scenes.length }, 'Generating batch scene prompts');
 
     const prompt = `You are an AI image generation prompt specialist for animated content.
 

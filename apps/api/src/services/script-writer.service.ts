@@ -1,10 +1,10 @@
-import { openai } from '../config/openai';
+import { geminiJSON } from '../config/gemini';
 import { ScriptWritingInput, EpisodeScript } from '@ai-animation-factory/shared';
 import { logger } from '../utils/logger';
 
 export class ScriptWriterService {
   async write(input: ScriptWritingInput): Promise<EpisodeScript> {
-    logger.info('Writing episode script', { episode_id: input.episode_id, scene_count: input.scene_count });
+    logger.info({ episode_id: input.episode_id, scene_count: input.scene_count }, 'Writing episode script');
 
     const { idea, scene_count } = input;
 
@@ -40,34 +40,20 @@ Return a JSON object with this exact structure:
 }
 
 Important:
-- Make visual_prompt extremely detailed for DALL-E image generation
+- Make visual_prompt extremely detailed for image generation
 - Include art style: "vibrant animated style, cel-shaded, colorful"
 - Each scene should flow naturally to the next
 - Keep dialogue concise and natural
-- Ensure content is appropriate for ${idea.target_audience} audience`;
+- Ensure content is appropriate for ${idea.target_audience} audience
+- Return exactly ${scene_count} scenes`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.8,
-      max_tokens: 3000,
-    });
+    const script = await geminiJSON<EpisodeScript>(prompt);
 
-    const content = response.choices[0].message.content;
-    if (!content) throw new Error('Empty response from OpenAI');
-
-    const script = JSON.parse(content) as EpisodeScript;
-
-    // Validate scene count
     if (script.scenes.length !== scene_count) {
-      logger.warn('Scene count mismatch', {
-        expected: scene_count,
-        got: script.scenes.length,
-      });
+      logger.warn({ expected: scene_count, got: script.scenes.length }, 'Scene count mismatch');
     }
 
-    logger.info('Script written', { episode_id: input.episode_id, scenes: script.scenes.length });
+    logger.info({ episode_id: input.episode_id, scenes: script.scenes.length }, 'Script written');
     return script;
   }
 }

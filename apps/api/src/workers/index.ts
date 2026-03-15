@@ -8,26 +8,60 @@ import { createAssemblyWorker } from './assembly-worker';
 import { createSubtitleWorker } from './subtitle-worker';
 import { createThumbnailWorker } from './thumbnail-worker';
 import { logger } from '../utils/logger';
+import { emitJobProgress, emitEpisodeUpdate, emitError } from '../config/websocket';
 
 function setupWorkerListeners(worker: ReturnType<typeof createIdeaWorker>, name: string) {
   worker.on('completed', (job) => {
-    logger.info(`${name} job completed`, { job_id: job.id });
+    logger.info({ job_id: job.id }, `${name} job completed`);
+    
+    // Emit WebSocket event
+    if (job.data.episode_id) {
+      emitJobProgress(job.data.episode_id, name, 100, {
+        status: 'completed',
+        jobId: job.id,
+        output: job.returnvalue,
+      });
+      
+      emitEpisodeUpdate(job.data.episode_id, {
+        type: 'job_completed',
+        jobType: name,
+        status: 'completed',
+      });
+    }
   });
 
   worker.on('failed', (job, err) => {
-    logger.error(`${name} job failed`, {
+    logger.error({ 
       job_id: job?.id,
       error: err.message,
-      stack: err.stack,
-    });
+      stack: err.stack 
+    }, `${name} job failed`);
+    
+    // Emit error via WebSocket
+    if (job?.data?.episode_id) {
+      emitError(job.data.episode_id, `${name} job failed`, {
+        jobType: name,
+        error: err.message,
+        jobId: job.id,
+      });
+    }
   });
 
   worker.on('progress', (job, progress) => {
-    logger.debug(`${name} job progress`, { job_id: job.id, progress });
+    const progressValue = typeof progress === 'number' ? progress : 0;
+    logger.debug({ job_id: job.id, progress: progressValue }, `${name} job progress`);
+    
+    // Emit progress via WebSocket
+    if (job.data.episode_id) {
+      emitJobProgress(job.data.episode_id, name, progressValue, {
+        jobId: job.id,
+        sceneId: job.data.scene_id,
+      });
+    }
   });
 
   worker.on('error', (err) => {
-    logger.error(`${name} worker error`, { error: err.message });
+    logger.error({ error: err.message }, `${name} worker error`);
   });
 
   return worker;
@@ -48,7 +82,7 @@ export function startAllWorkers() {
     setupWorkerListeners(createThumbnailWorker(), 'thumbnail'),
   ];
 
-  logger.info(`${workers.length} workers started`);
+  logger.info(`${workers.length} workers started with WebSocket support`);
 
   // Graceful shutdown
   async function gracefulShutdown() {

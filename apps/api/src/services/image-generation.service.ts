@@ -1,7 +1,7 @@
-import { openai } from '../config/openai';
 import { ImageGenerationInput } from '@ai-animation-factory/shared';
 import { storageService } from './storage.service';
 import { logger } from '../utils/logger';
+import * as crypto from 'crypto';
 
 export interface ImageGenerationResult {
   image_url: string;
@@ -9,74 +9,52 @@ export interface ImageGenerationResult {
   revised_prompt?: string;
 }
 
-export class ImageGenerationService {
-  async generate(input: ImageGenerationInput): Promise<ImageGenerationResult> {
-    logger.info('Generating image', {
-      episode_id: input.episode_id,
-      scene_number: input.scene_number,
-    });
+// Free image generation services (no API key required)
+async function fetchImageBuffer(prompt: string, width = 1792, height = 1024): Promise<Buffer> {
+  const clean = prompt.slice(0, 400).replace(/[^\w\s,.-]/g, ' ');
 
-    const style = input.style || 'vivid';
+  // Try Pollinations.ai (flux model)
+  const pollinationsUrl =
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}` +
+    `?width=${width}&height=${height}&model=flux&nologo=true&seed=${Date.now() % 99999}`;
 
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: input.visual_prompt,
-      n: 1,
-      size: '1792x1024',
-      quality: 'standard',
-      style: style as 'vivid' | 'natural',
-      response_format: 'url',
-    });
-
-    const imageData = response.data[0];
-    if (!imageData?.url) throw new Error('No image URL returned from DALL-E');
-
-    // Download and upload to storage
-    const imageResponse = await fetch(imageData.url);
-    if (!imageResponse.ok) throw new Error('Failed to download generated image');
-
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
-    const fileKey = `episodes/${input.episode_id}/scenes/${input.scene_id}/image.png`;
-
-    const uploadedUrl = await storageService.uploadBuffer(buffer, fileKey, 'image/png');
-
-    logger.info('Image generated and uploaded', { episode_id: input.episode_id, file_key: fileKey });
-
-    return {
-      image_url: uploadedUrl,
-      file_key: fileKey,
-      revised_prompt: imageData.revised_prompt,
-    };
+  try {
+    const res = await fetch(pollinationsUrl, { signal: AbortSignal.timeout(55_000) });
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 10_000) return buf; // valid image
+    }
+  } catch {
+    // fall through to placeholder
   }
 
-  async generateThumbnail(
-    episodeId: string,
-    title: string,
-    genre: string
-  ): Promise<ImageGenerationResult> {
-    const prompt = `Create a stunning animated series thumbnail for an episode titled "${title}".
-Genre: ${genre}. Style: vibrant, eye-catching, Netflix-style thumbnail art, animated characters,
-dramatic composition, bold colors, cinematic quality, no text overlay.`;
+  // Fallback: Picsum Photos (deterministic placeholder based on prompt hash)
+  const seed = parseInt(crypto.createHash('md5').update(prompt).digest('hex').slice(0, 8), 16) % 1000;
+  const picsumUrl = `https://picsum.photos/seed/${seed}/${width}/${height}`;
+  const res = await fetch(picsumUrl, { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`Image fallback failed: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
 
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt,
-      n: 1,
-      size: '1792x1024',
-      quality: 'hd',
-      style: 'vivid',
-      response_format: 'url',
-    });
+export class ImageGenerationService {
+  async generate(input: ImageGenerationInput): Promise<ImageGenerationResult> {
+    logger.info({ episode_id: input.episode_id, scene_number: input.scene_number }, 'Generating image');
 
-    const imageData = response.data[0];
-    if (!imageData?.url) throw new Error('No thumbnail URL returned from DALL-E');
+    const buffer = await fetchImageBuffer(
+      `${input.visual_prompt}, vibrant animated style, cel-shaded, colorful, cinematic`
+    );
+    const fileKey = `episodes/${input.episode_id}/scenes/${input.scene_id}/image.jpg`;
+    const uploadedUrl = await storageService.uploadBuffer(buffer, fileKey, 'image/jpeg');
 
-    const imageResponse = await fetch(imageData.url);
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
-    const fileKey = `episodes/${episodeId}/thumbnail.png`;
+    logger.info({ episode_id: input.episode_id, file_key: fileKey }, 'Image generated and uploaded');
+    return { image_url: uploadedUrl, file_key: fileKey };
+  }
 
-    const uploadedUrl = await storageService.uploadBuffer(buffer, fileKey, 'image/png');
-
+  async generateThumbnail(episodeId: string, title: string, genre: string): Promise<ImageGenerationResult> {
+    const prompt = `Netflix-style animated thumbnail, "${title}", ${genre}, dramatic composition, bold colors, no text`;
+    const buffer = await fetchImageBuffer(prompt, 1792, 1024);
+    const fileKey = `episodes/${episodeId}/thumbnail.jpg`;
+    const uploadedUrl = await storageService.uploadBuffer(buffer, fileKey, 'image/jpeg');
     return { image_url: uploadedUrl, file_key: fileKey };
   }
 }

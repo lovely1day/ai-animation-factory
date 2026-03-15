@@ -6,7 +6,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { Eye, Heart, Share2, Clock, Film, Calendar, Play } from "lucide-react";
 import type { Episode } from "@ai-animation-factory/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3004";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -41,7 +41,7 @@ async function getEpisode(id: string): Promise<Episode | null> {
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return json.data ?? null;
+    return json.data?.episode ?? json.data ?? null;
   } catch {
     return null;
   }
@@ -71,7 +71,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
   const { id } = await params;
   const episode = await getEpisode(id);
 
-  if (!episode || episode.status !== "published") notFound();
+  if (!episode || !["published", "completed"].includes(episode.status)) notFound();
 
   const related = await getRelated(episode.genre, episode.id);
 

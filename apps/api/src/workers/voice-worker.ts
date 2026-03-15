@@ -10,7 +10,7 @@ export function createVoiceWorker() {
     JOB_QUEUE_NAMES.VOICE,
     async (job: Job) => {
       const { episode_id, scene_id, text } = job.data;
-      logger.info('Processing voice generation job', { job_id: job.id, episode_id, scene_id });
+      logger.info({ job_id: job.id, episode_id, scene_id }, 'Processing voice generation job');
 
       await job.updateProgress(10);
 
@@ -33,7 +33,7 @@ export function createVoiceWorker() {
       });
 
       await job.updateProgress(100);
-      logger.info('Voice generation completed', { episode_id, scene_id });
+      logger.info({ episode_id, scene_id }, 'Voice generation completed');
 
       return { episode_id, scene_id, voice_url: result.voice_url };
     },

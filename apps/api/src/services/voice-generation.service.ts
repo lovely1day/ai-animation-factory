@@ -15,10 +15,10 @@ export class VoiceGenerationService {
   private readonly baseUrl = 'https://api.elevenlabs.io/v1';
 
   async generate(input: VoiceGenerationInput): Promise<VoiceGenerationResult> {
-    logger.info('Generating voice', {
+    logger.info({
       episode_id: input.episode_id,
       scene_id: input.scene_id,
-    });
+    }, 'Generating voice');
 
     const voiceId = input.voice_id || this.defaultVoiceId;
     const text = input.text.trim();
@@ -59,11 +59,11 @@ export class VoiceGenerationService {
     // Estimate duration from buffer size (rough approximation: ~16KB per second for 128kbps)
     const estimatedDuration = Math.max(1, Math.round(buffer.byteLength / 16000));
 
-    logger.info('Voice generated and uploaded', {
+    logger.info({
       episode_id: input.episode_id,
       file_key: fileKey,
       duration: estimatedDuration,
-    });
+    }, 'Voice generated and uploaded');
 
     return {
       voice_url: uploadedUrl,

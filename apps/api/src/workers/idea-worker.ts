@@ -1,72 +1,82 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../config/redis';
-import { supabase } from '../config/supabase';
 import { JOB_QUEUE_NAMES } from '@ai-animation-factory/shared';
 import { ideaGeneratorService } from '../services/idea-generator.service';
-import { queues, defaultJobOptions } from '../services/queue.service';
+import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { emitEpisodeUpdate } from '../config/websocket';
 
 export function createIdeaWorker() {
   return new Worker(
     JOB_QUEUE_NAMES.IDEA,
     async (job: Job) => {
-      const { genre, target_audience, theme, scene_count } = job.data;
-
-      logger.info('Processing idea generation job', { job_id: job.id, genre });
-
+      const { episode_id, genre, target_audience, theme } = job.data;
+      
+      logger.info({ job_id: job.id, episode_id }, 'Processing idea generation job');
+      
       await job.updateProgress(10);
-
-      // Generate episode idea
-      const idea = await ideaGeneratorService.generate({ genre, target_audience, theme });
+      
+      // Generate idea using OpenAI
+      const idea = await ideaGeneratorService.generate({
+        genre,
+        target_audience,
+        theme,
+      });
+      
       await job.updateProgress(50);
-
-      // Create episode record in database
-      const { data: episode, error } = await supabase
+      
+      // Update episode with generated idea
+      const { error: updateError } = await supabase
         .from('episodes')
-        .insert({
+        .update({
           title: idea.title,
           description: idea.description,
-          genre: idea.genre,
-          target_audience: idea.target_audience,
-          status: 'generating',
+          theme: idea.theme,
           tags: idea.tags,
-          metadata: { theme: idea.theme },
+          status: 'awaiting_script_approval',
         })
-        .select()
-        .single();
-
-      if (error || !episode) throw new Error(`Failed to create episode: ${error?.message}`);
-
-      await job.updateProgress(70);
-
-      // Create job record
+        .eq('id', episode_id);
+      
+      if (updateError) {
+        throw new Error(`Failed to update episode: ${updateError.message}`);
+      }
+      
+      await job.updateProgress(80);
+      
+      // Record job completion
       await supabase.from('generation_jobs').insert({
-        episode_id: episode.id,
+        episode_id,
         job_type: 'idea_generation',
         status: 'completed',
-        bull_job_id: job.id,
+        bull_job_id: job.id?.toString(),
         progress: 100,
-        output_data: { idea },
+        output_data: idea,
         completed_at: new Date().toISOString(),
       });
-
+      
       await job.updateProgress(90);
 
-      // Dispatch script writing job
-      await queues.script.add(
-        'write-script',
-        { episode_id: episode.id, idea, scene_count },
-        { ...defaultJobOptions, priority: 2 }
-      );
+      // Emit WebSocket event — waiting for user approval
+      emitEpisodeUpdate(episode_id, {
+        type: 'awaiting_script_approval',
+        title: idea.title,
+        description: idea.description,
+        theme: idea.theme,
+        tags: idea.tags,
+      });
 
       await job.updateProgress(100);
-      logger.info('Idea generation completed', { episode_id: episode.id });
 
-      return { episode_id: episode.id, idea };
+      return {
+        success: true,
+        episode_id,
+        idea,
+        status: 'awaiting_script_approval',
+      };
     },
-    {
+    { 
       connection: redisConnection,
-      concurrency: 5,
+      concurrency: 1,
     }
   );
 }

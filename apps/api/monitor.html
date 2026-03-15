@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مراقب الحلقات - AI Animation Factory</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --purple-primary: #9333ea;
+            --purple-hover: #7c3aed;
+            --purple-light: #a855f7;
+            --pink-primary: #ec4899;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            -webkit-text-fill-color: initial;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .nav-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-btn:hover {
+            background: rgba(147, 51, 234, 0.2);
+            border-color: var(--purple-primary);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-hover));
+            border: none;
+            color: white;
+        }
+
+        .nav-btn.primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            flex: 1;
+            padding: 40px 32px;
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .page-title {
+            font-size: 48px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 48px;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section { 
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 32px; 
+            margin-bottom: 32px; 
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .section h3 {
+            color: var(--purple-light);
+            margin-bottom: 24px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-row { 
+            display: flex; 
+            gap: 16px; 
+            margin-bottom: 24px; 
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        input, select { 
+            padding: 14px 20px; 
+            border-radius: 12px; 
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            flex: 1;
+            min-width: 200px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--purple-primary);
+            background: rgba(147, 51, 234, 0.05);
+        }
+
+        button { 
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-hover));
+            color: white;
+            border: none; 
+            padding: 14px 28px; 
+            border-radius: 12px; 
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover { 
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(147, 51, 234, 0.3);
+        }
+
+        button:disabled { 
+            background: #374151;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button.secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        button.secondary:hover {
+            background: rgba(147, 51, 234, 0.1);
+            border-color: var(--purple-primary);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, var(--error), #dc2626);
+        }
+
+        button.danger:hover {
+            box-shadow: 0 8px 30px rgba(239, 68, 68, 0.3);
+        }
+        
+        .progress-bar { 
+            width: 100%; 
+            height: 40px; 
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px; 
+            overflow: hidden;
+            margin: 24px 0;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+
+        .progress-fill { 
+            height: 100%; 
+            background: linear-gradient(90deg, var(--purple-primary), var(--pink-primary));
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 16px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 4px;
+        }
+
+        .status-pending { 
+            background: rgba(245, 158, 11, 0.2); 
+            color: var(--warning); 
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .status-processing { 
+            background: rgba(59, 130, 246, 0.2); 
+            color: #60a5fa; 
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .status-generating { 
+            background: rgba(147, 51, 234, 0.2); 
+            color: var(--purple-light); 
+            border: 1px solid rgba(147, 51, 234, 0.3);
+        }
+        .status-completed { 
+            background: rgba(16, 185, 129, 0.2); 
+            color: var(--success); 
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-failed { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: var(--error); 
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .status-published { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(5, 150, 105, 0.3)); 
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        
+        .scene-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+            gap: 24px; 
+            margin-top: 32px;
+        }
+
+        .scene-card { 
+            background: rgba(255, 255, 255, 0.03);
+            padding: 24px; 
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scene-card:hover { 
+            transform: translateY(-4px);
+            border-color: var(--purple-primary);
+            box-shadow: 0 12px 40px rgba(147, 51, 234, 0.15);
+        }
+
+        .scene-card.completed { border-color: var(--success); }
+        .scene-card.generating { border-color: var(--warning); }
+        .scene-card.failed { border-color: var(--error); }
+
+        .scene-number { 
+            font-size: 32px; 
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .scene-title { 
+            font-size: 16px; 
+            margin: 12px 0;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .scene-status { 
+            font-size: 14px; 
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .scene-img { 
+            width: 100%; 
+            height: 140px; 
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(236, 72, 153, 0.1));
+            border-radius: 12px; 
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            border: 1px dashed var(--border-color);
+        }
+
+        .scene-img img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            border-radius: 12px;
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        th, td { 
+            padding: 18px; 
+            text-align: right; 
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th { 
+            color: var(--purple-light);
+            background: rgba(147, 51, 234, 0.1);
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover { 
+            background: rgba(147, 51, 234, 0.03);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .auto-refresh { 
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+            margin: 24px 0;
+            padding: 18px 24px;
+            background: rgba(147, 51, 234, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+        }
+
+        .refresh-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--purple-light);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+        
+        .error { 
+            color: var(--error); 
+            padding: 18px; 
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            margin: 16px 0;
+        }
+
+        .success { 
+            color: var(--success); 
+            padding: 18px; 
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            margin: 16px 0;
+        }
+
+        .info-box {
+            background: rgba(147, 51, 234, 0.08);
+            border: 1px solid rgba(147, 51, 234, 0.2);
+            padding: 18px;
+            border-radius: 12px;
+            margin: 16px 0;
+            color: var(--text-secondary);
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin: 24px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            padding: 28px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--purple-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(147, 51, 234, 0.15);
+        }
+
+        .stat-value {
+            font-size: 42px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--purple-light), var(--pink-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 48px 32px 32px;
+            margin-top: auto;
+        }
+
+        .footer-content {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 48px;
+            text-align: right;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h4 {
+            color: var(--purple-light);
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .footer-section p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .footer-section a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: block;
+            padding: 8px 0;
+            transition: all 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: var(--purple-light);
+            transform: translateX(-4px);
+        }
+
+        .footer-bottom {
+            max-width: 1280px;
+            margin: 0 auto;
+            border-top: 1px solid var(--border-color);
+            padding-top: 32px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin: 24px 0;
+        }
+
+        .social-links a {
+            font-size: 24px;
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+
+        .social-links a:hover {
+            opacity: 1;
+            transform: translateY(-4px);
+        }
+
+        /* Language Switcher */
+        .lang-switcher {
+            position: relative;
+        }
+
+        .lang-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .lang-btn:hover {
+            border-color: var(--purple-primary);
+            background: rgba(147, 51, 234, 0.1);
+        }
+
+        .lang-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            min-width: 140px;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            z-index: 1000;
+        }
+
+        .lang-dropdown.active {
+            display: block;
+        }
+
+        .lang-option {
+            padding: 12px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .lang-option:hover {
+            background: rgba(147, 51, 234, 0.1);
+        }
+
+        .lang-option.active {
+            color: var(--purple-light);
+            background: rgba(147, 51, 234, 0.15);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .nav-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .page-title {
+                font-size: 32px;
+            }
+
+            .main-content {
+                padding: 24px 16px;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            input, select, button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">🎬</span>
+            <span>AI Animation Factory</span>
+        </div>
+        
+        <nav class="nav-buttons">
+            <a href="http://localhost:3000" class="nav-btn">
+                🏠 الرئيسية
+            </a>
+            <a href="http://localhost:3000/create" class="nav-btn primary">
+                ➕ إنشاء حلقة
+            </a>
+            <a href="http://localhost:3000/dashboard" class="nav-btn">
+                📊 لوحة التحكم
+            </a>
+            
+            <div class="lang-switcher">
+                <button class="lang-btn" onclick="toggleLang()">
+                    🌐 <span id="currentLang">العربية</span>
+                </button>
+                <div class="lang-dropdown" id="langDropdown">
+                    <div class="lang-option active" onclick="changeLang('ar')">
+                        🇸🇦 العربية
+                    </div>
+                    <div class="lang-option" onclick="changeLang('en')">
+                        🇬🇧 English
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <h1 class="page-title">📺 مراقب إنتاج الحلقات</h1>
+        
+        <!-- Stats Overview -->
+        <div class="section">
+            <h3>📈 إحصائيات سريعة</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">إجمالي الحلقات</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statCompleted">0</div>
+                    <div class="stat-label">مكتملة</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statProcessing">0</div>
+                    <div class="stat-label">قيد الإنتاج</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statPending">0</div>
+                    <div class="stat-label">في الانتظار</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- إنشاء حلقة -->
+        <div class="section">
+            <h3>➕ إنشاء حلقة جديدة</h3>
+            <div class="form-row">
+                <select id="genre">
+                    <option value="comedy">😄 كوميديا</option>
+                    <option value="adventure">🏔️ مغامرة</option>
+                    <option value="sci-fi">🚀 خيال علمي</option>
+                    <option value="fantasy">🧙 فانتازيا</option>
+                    <option value="educational">📚 تعليمي</option>
+                    <option value="drama">🎭 دراما</option>
+                    <option value="mystery">🔍 غموض</option>
+                </select>
+                <select id="audience">
+                    <option value="children">👶 أطفال</option>
+                    <option value="teens">🧑 مراهقين</option>
+                    <option value="adults">👨 بالغين</option>
+                    <option value="general">👨‍👩‍👧‍👦 عام</option>
+                </select>
+                <button onclick="createEpisode()">
+                    ⚡ إنشاء الحلقة
+                </button>
+            </div>
+            <div id="createResult"></div>
+        </div>
+
+        <!-- قائمة الحلقات -->
+        <div class="section">
+            <h3>📋 قائمة الحلقات</h3>
+            <div class="form-row">
+                <button onclick="loadEpisodes()">🔄 تحديث القائمة</button>
+                <button onclick="refreshAll()" class="secondary">🔄 تحديث الكل</button>
+            </div>
+            <div id="episodesList"></div>
+        </div>
+
+        <!-- تفاصيل الحلقة -->
+        <div class="section" id="episodeDetails" style="display:none;">
+            <h3>🎥 تفاصيل الحلقة</h3>
+            <div class="form-row">
+                <input type="text" id="episodeId" placeholder="أدخل ID الحلقة" />
+                <button onclick="loadEpisodeDetails()">🔍 عرض التفاصيل</button>
+                <button onclick="startMonitoring()" class="primary">▶️ مراقبة مباشرة</button>
+                <button onclick="stopMonitoring()" class="danger">⏹️ إيقاف</button>
+            </div>
+            
+            <div class="auto-refresh" id="monitorStatus" style="display:none;">
+                <div class="refresh-indicator"></div>
+                <span>🔴 جاري المراقبة المباشرة... (تحديث كل 2 ثانية)</span>
+            </div>
+            
+            <div id="episodeInfo"></div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar" style="width: 0%">0%</div>
+            </div>
+            
+            <h3 style="margin-top: 40px;">🎬 المشاهد</h3>
+            <div class="scene-grid" id="scenesGrid"></div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>🎬 AI Animation Factory</h4>
+                <p>
+                    منصة ذكية لتوليد أفلام الكرتون باستخدام الذكاء الاصطناعي.
+                    أنشئ حلقاتك الخاصة في دقائق معدودة!
+                </p>
+            </div>
+            
+            <div class="footer-section">
+                <h4>روابط سريعة</h4>
+                <a href="http://localhost:3000">🏠 الصفحة الرئيسية</a>
+                <a href="http://localhost:3000/create">➕ إنشاء حلقة جديدة</a>
+                <a href="http://localhost:3000/dashboard">📊 لوحة التحكم</a>
+                <a href="http://localhost:3000/library">🎬 مكتبة الحلقات</a>
+            </div>
+            
+            <div class="footer-section">
+                <h4>المساعدة</h4>
+                <a href="#">📖 دليل الاستخدام</a>
+                <a href="#">❓ الأسئلة الشائعة</a>
+                <a href="#">📧 تواصل معنا</a>
+                <a href="#">🐛 الإبلاغ عن مشكلة</a>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="social-links">
+                <a href="#">📱</a>
+                <a href="#">🐦</a>
+                <a href="#">📷</a>
+                <a href="#">▶️</a>
+            </div>
+            <p>© 2024 AI Animation Factory. جميع الحقوق محفوظة.</p>
+            <p style="margin-top: 8px; opacity: 0.7;">
+                🔧 النسخة 1.0.0 | ⚡ مدعوم بـ OpenAI, Runway, ElevenLabs
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        const API_URL = 'http://localhost:3004';
+        let monitorInterval = null;
+        let currentEpisodeId = null;
+
+        function toggleLang() {
+            document.getElementById('langDropdown').classList.toggle('active');
+        }
+
+        function changeLang(lang) {
+            document.getElementById('currentLang').textContent = lang === 'ar' ? 'العربية' : 'English';
+            document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('langDropdown').classList.remove('active');
+            if (lang === 'en') alert('English version coming soon!');
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.lang-switcher')) {
+                document.getElementById('langDropdown').classList.remove('active');
+            }
+        });
+
+        async function api(endpoint, method = 'GET', body = null) {
+            try {
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
+                if (body) options.body = JSON.stringify(body);
+                const res = await fetch(`${API_URL}${endpoint}`, options);
+                return await res.json();
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        }
+
+        async function createEpisode() {
+            const genre = document.getElementById('genre').value;
+            const audience = document.getElementById('audience').value;
+            const resultDiv = document.getElementById('createResult');
+            
+            resultDiv.innerHTML = '<div class="info-box">⏳ جاري إنشاء الحلقة...</div>';
+            
+            const data = await api('/api/episodes', 'POST', { genre, targetAudience: audience });
+            
+            if (data.success) {
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ تم إنشاء الحلقة بنجاح!<br><br>
+                        <strong>🆔 رقم الحلقة:</strong> ${data.data.id}<br>
+                        <button onclick="viewEpisode('${data.data.id}')" style="margin-top: 12px;">🔍 عرض التفاصيل</button>
+                    </div>
+                `;
+                loadEpisodes();
+                updateStats();
+            } else {
+                resultDiv.innerHTML = `<div class="error">❌ فشل الإنشاء: ${data.error || 'خطأ غير معروف'}</div>`;
+            }
+        }
+
+        function viewEpisode(id) {
+            document.getElementById('episodeId').value = id;
+            loadEpisodeDetails();
+            document.getElementById('episodeDetails').style.display = 'block';
+            document.getElementById('episodeDetails').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function updateStats() {
+            const data = await api('/api/episodes');
+            if (data.success) {
+                const episodes = data.data || [];
+                document.getElementById('statTotal').textContent = episodes.length;
+                document.getElementById('statCompleted').textContent = episodes.filter(e => e.status === 'completed').length;
+                document.getElementById('statProcessing').textContent = episodes.filter(e => ['processing', 'generating'].includes(e.status)).length;
+                document.getElementById('statPending').textContent = episodes.filter(e => e.status === 'pending').length;
+            }
+        }
+
+        async function loadEpisodes() {
+            const listDiv = document.getElementById('episodesList');
+            listDiv.innerHTML = '<div class="info-box">⏳ جاري التحميل...</div>';
+            
+            const data = await api('/api/episodes');
+            
+            if (data.success && data.data.length > 0) {
+                let html = '<table><thead><tr><th>العنوان</th><th>النوع</th><th>الحالة</th><th>تاريخ الإنشاء</th><th></th></tr></thead><tbody>';
+                
+                data.data.forEach(ep => {
+                    const statusClass = `status-${ep.status}`;
+                    const statusText = {
+                        pending: '⏳ في الانتظار',
+                        processing: '🔄 قيد المعالجة',
+                        completed: '✅ مكتمل',
+                        published: '🌟 منشور'
+                    }[ep.status] || ep.status;
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${ep.title || 'بدون عنوان'}</strong></td>
+                            <td>${ep.genre || '-'}</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                            <td>${new Date(ep.created_at).toLocaleString('ar-SA')}</td>
+                            <td><button onclick="viewEpisode('${ep.id}')" style="padding: 8px 16px; font-size: 13px;">عرض</button></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+                updateStats();
+            } else {
+                listDiv.innerHTML = '<div class="info-box">ℹ️ لا توجد حلقات بعد</div>';
+            }
+        }
+
+        async function loadEpisodeDetails() {
+            const id = document.getElementById('episodeId').value.trim();
+            if (!id) return alert('⚠️ أدخل ID الحلقة');
+            
+            currentEpisodeId = id;
+            const infoDiv = document.getElementById('episodeInfo');
+            infoDiv.innerHTML = '<div class="info-box">⏳ جاري التحميل...</div>';
+            
+            const data = await api(`/api/jobs/${id}/status`);
+            
+            if (data.success) {
+                const d = data.data;
+                document.getElementById('episodeDetails').style.display = 'block';
+                
+                const stageNames = {
+                    pending: '⏳ في الانتظار',
+                    generating_idea: '💡 توليد الفكرة',
+                    writing_script: '📝 كتابة السيناريو',
+                    generating_images: '🖼️ توليد الصور',
+                    generating_voices: '🎙️ توليد الصوت',
+                    assembling_video: '🔧 تجميع الفيديو',
+                    completed: '✅ مكتمل'
+                };
+                
+                infoDiv.innerHTML = `
+                    <div class="section" style="margin-bottom: 24px;">
+                        <h2 style="color: var(--purple-light); margin-bottom: 16px;">${d.episode.title || 'بدون عنوان'}</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; color: var(--text-secondary);">
+                            <div><strong style="color: var(--text-primary);">المرحلة:</strong> ${stageNames[d.stage] || d.stage}</div>
+                            <div><strong style="color: var(--text-primary);">المشاهد:</strong> ${d.completedScenes}/${d.totalScenes}</div>
+                            <div><strong style="color: var(--text-primary);">النوع:</strong> ${d.episode.genre || '-'}</div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('progressBar').style.width = d.progress + '%';
+                document.getElementById('progressBar').textContent = d.progress + '%';
+                
+                const grid = document.getElementById('scenesGrid');
+                if (d.scenes.length > 0) {
+                    grid.innerHTML = d.scenes.map(s => `
+                        <div class="scene-card ${s.status}">
+                            <div class="scene-number">مشهد ${s.scene_number}</div>
+                            <div class="scene-title">${s.title || 'بدون عنوان'}</div>
+                            <div class="scene-status">
+                                ${s.status === 'completed' ? '✅' : s.status === 'generating' ? '⏳' : '⏸️'} 
+                                ${s.status === 'completed' ? 'مكتمل' : s.status === 'generating' ? 'جاري' : 'في الانتظار'}
+                            </div>
+                            ${s.image_url ? `<div class="scene-img"><img src="${s.image_url}" onerror="this.parentElement.innerHTML='🖼️'" /></div>` : '<div class="scene-img">🖼️</div>'}
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = '<div class="info-box">ℹ️ لا توجد مشاهد بعد</div>';
+                }
+            } else {
+                infoDiv.innerHTML = `<div class="error">❌ خطأ: ${data.error}</div>`;
+            }
+        }
+
+        function startMonitoring() {
+            if (!currentEpisodeId) {
+                const id = document.getElementById('episodeId').value.trim();
+                if (!id) { alert('⚠️ أدخل ID الحلقة'); return; }
+                currentEpisodeId = id;
+            }
+            stopMonitoring();
+            document.getElementById('monitorStatus').style.display = 'flex';
+            loadEpisodeDetails();
+            monitorInterval = setInterval(loadEpisodeDetails, 2000);
+        }
+
+        function stopMonitoring() {
+            if (monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
+            document.getElementById('monitorStatus').style.display = 'none';
+        }
+
+        function refreshAll() { loadEpisodes(); if (currentEpisodeId) loadEpisodeDetails(); updateStats(); }
+
+        window.addEventListener('load', () => { loadEpisodes(); updateStats(); });
+        window.addEventListener('beforeunload', () => { stopMonitoring(); });
+    </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 function required(key: string): string {
   const value = process.env[key];
@@ -16,7 +16,7 @@ function optional(key: string, defaultValue = ''): string {
 export const env = {
   NODE_ENV: optional('NODE_ENV', 'development'),
   API_PORT: parseInt(optional('API_PORT', '3001'), 10),
-  API_URL: optional('API_URL', 'http://localhost:3001'),
+  API_URL: optional('API_URL', 'http://localhost:3004'),
 
   // Supabase
   SUPABASE_URL: required('SUPABASE_URL'),
@@ -27,24 +27,23 @@ export const env = {
   REDIS_PORT: parseInt(optional('REDIS_PORT', '6379'), 10),
   REDIS_PASSWORD: optional('REDIS_PASSWORD'),
 
-  // Storage
-  R2_ENDPOINT: required('R2_ENDPOINT'),
-  R2_ACCESS_KEY_ID: required('R2_ACCESS_KEY_ID'),
-  R2_SECRET_ACCESS_KEY: required('R2_SECRET_ACCESS_KEY'),
-  R2_BUCKET_NAME: required('R2_BUCKET_NAME'),
-  R2_PUBLIC_URL: required('R2_PUBLIC_URL'),
+  // Storage — Supabase Storage
+  STORAGE_BUCKET: optional('STORAGE_BUCKET', 'ai-animation-factory'),
+  STORAGE_PUBLIC_URL: optional('STORAGE_PUBLIC_URL', ''),
 
   // AI Services
-  OPENAI_API_KEY: required('OPENAI_API_KEY'),
-  RUNWAY_API_KEY: required('RUNWAY_API_KEY'),
+  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
+  GEMINI_API_KEY: optional('GEMINI_API_KEY', ''),
+  GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.5-flash'),
+  RUNWAY_API_KEY: optional('RUNWAY_API_KEY', ''),
   RUNWAY_API_URL: optional('RUNWAY_API_URL', 'https://api.runwayml.com/v1'),
-  ELEVENLABS_API_KEY: required('ELEVENLABS_API_KEY'),
+  ELEVENLABS_API_KEY: optional('ELEVENLABS_API_KEY', ''),
   ELEVENLABS_DEFAULT_VOICE_ID: optional('ELEVENLABS_DEFAULT_VOICE_ID', '21m00Tcm4TlvDq8ikWAM'),
-  MUBERT_API_KEY: required('MUBERT_API_KEY'),
-  MUBERT_LICENSE: required('MUBERT_LICENSE'),
+  MUBERT_API_KEY: optional('MUBERT_API_KEY', ''),
+  MUBERT_LICENSE: optional('MUBERT_LICENSE', ''),
 
-  // Auth
-  JWT_SECRET: required('JWT_SECRET'),
+  // Auth (optional for development)
+  JWT_SECRET: optional('JWT_SECRET', 'dev-secret-key-for-testing-only-change-in-production'),
   JWT_EXPIRY: optional('JWT_EXPIRY', '7d'),
 
   // Generation settings

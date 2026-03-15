@@ -1,40 +1,61 @@
-﻿import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
 
-const s3 = new S3Client({
-  region: 'auto',
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
-  }
-});
+// Supabase Storage client (uses service role for full access)
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-const BUCKET = process.env.R2_BUCKET!;
+const BUCKET = process.env.STORAGE_BUCKET || 'ai-animation-factory';
+const PUBLIC_BASE = process.env.STORAGE_PUBLIC_URL ||
+  `${process.env.SUPABASE_URL}/storage/v1/object/public/${BUCKET}`;
+
+/**
+ * Upload a buffer to Supabase Storage and return the public URL.
+ */
+export async function uploadBuffer(
+  buffer: Buffer,
+  key: string,
+  contentType: string
+): Promise<string> {
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(key, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (error) {
+    logger.error({ error: error.message, key }, 'Supabase Storage upload failed');
+    throw new Error(`Storage upload failed: ${error.message}`);
+  }
+
+  const url = `${PUBLIC_BASE}/${key}`;
+  logger.info({ key, url }, 'File uploaded to Supabase Storage');
+  return url;
+}
 
 export async function uploadFile(key: string, buffer: Buffer, contentType: string) {
-  try {
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType
-    }));
-    
-    logger.info({ key }, 'File uploaded successfully');
-    return { success: true, key };
-  } catch (error) {
-    logger.error({ error, key }, 'Failed to upload file');
-    throw error;
-  }
+  await uploadBuffer(buffer, key, contentType);
+  return { success: true, key };
 }
 
-export async function getSignedDownloadUrl(key: string, expiresIn: number = 3600) {
-  const command = new GetObjectCommand({
-    Bucket: BUCKET,
-    Key: key
-  });
-  
-  return getSignedUrl(s3, command, { expiresIn });
+/**
+ * Get a signed (temporary) download URL for a private file.
+ * For public buckets, just use the public URL directly.
+ */
+export async function getSignedDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(key, expiresIn);
+
+  if (error || !data?.signedUrl) {
+    // Fallback to public URL
+    return `${PUBLIC_BASE}/${key}`;
+  }
+  return data.signedUrl;
 }
+
+export const storageService = { uploadBuffer, uploadFile, getSignedDownloadUrl };

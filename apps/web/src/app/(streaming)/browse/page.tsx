@@ -1,10 +1,10 @@
 // apps/web/src/app/(streaming)/browse/page.tsx
 import React from "react";
 import Image from "next/image";
-import { Film, Search, Clock, Play } from "lucide-react";
+import { Film, Clock, Play } from "lucide-react";
 import type { Episode } from "@ai-animation-factory/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3004";
 
 const GENRES = [
   { id: "all", label: "All" },
@@ -27,7 +27,7 @@ function formatDuration(seconds: number): string {
 async function fetchEpisodes(genre?: string): Promise<Episode[]> {
   try {
     const url = new URL(`${API_URL}/api/episodes`);
-    url.searchParams.set("status", "published");
+    url.searchParams.set("status", "completed,published");
     url.searchParams.set("limit", "24");
     if (genre && genre !== "all") url.searchParams.set("genre", genre);
 
@@ -53,41 +53,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-white">
 
-      {/* ── Navigation bar ── */}
-      <nav className="fixed top-0 inset-x-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <a href="/" className="flex items-center gap-2 text-white font-bold text-lg">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
-              <Film className="w-4 h-4 text-white" />
-            </div>
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              AI Animation Factory
-            </span>
-          </a>
-
-          {/* Right side */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all"
-              aria-label="Search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-            <a
-              href="/login"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-semibold transition-all"
-            >
-              Sign In
-            </a>
-          </div>
-        </div>
-      </nav>
-
       {/* ── Hero — featured episode ── */}
       {featured && (
-        <section className="relative h-[70vh] min-h-[480px] flex items-end pt-16">
+        <section className="relative h-[70vh] min-h-[480px] flex items-end">
           {/* Background thumbnail */}
           {featured.thumbnail_url ? (
             <Image
