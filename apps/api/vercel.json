@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "ai-animation-factory-api",
+  "buildCommand": "cd ../.. && pnpm --filter @ai-animation-factory/shared build && pnpm --filter @ai-animation-factory/api build",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/dist/server.js" }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
