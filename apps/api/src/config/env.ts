@@ -34,7 +34,7 @@ export const env = {
   // AI Services - Multi Provider Support
   // Primary: Gemini (Recommended)
   GEMINI_API_KEY: optional('GEMINI_API_KEY', ''),
-  GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.5-flash'),
+  GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.0-flash'),
   
   // Alternative Providers (Optional)
   OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
@@ -65,7 +65,7 @@ export const env = {
   OLLAMA_MODEL: optional('OLLAMA_MODEL', 'llama3'),
 
   // AI Provider selection: "gemini" | "ollama" | "auto" (default: auto = gemini first, ollama fallback)
-  AI_PROVIDER: optional('AI_PROVIDER', 'auto'),
+  AI_PROVIDER: optional('AI_PROVIDER', 'ollama'),
 
   // Generation settings
   EPISODES_PER_HOUR: parseInt(optional('EPISODES_PER_HOUR', '5'), 10),

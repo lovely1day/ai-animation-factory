@@ -12,6 +12,7 @@ import jobsRoutes from './jobs.routes';
 import analyticsRoutes from './analytics.routes';
 import ollamaRoutes from './ollama.routes';
 import imagePromptsRoutes from './image-prompts.routes';
+import charactersRoutes from './characters.routes';
 import mockRoutes from './mock.routes';
 
 const router: express.Router = express.Router();
@@ -50,6 +51,7 @@ if (isMockMode) {
   router.use('/analytics', analyticsRoutes);
   router.use('/ollama', ollamaRoutes);
   router.use('/image-prompts', imagePromptsRoutes);
+  router.use('/characters', charactersRoutes);
 }
 
 export default router;

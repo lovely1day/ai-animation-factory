@@ -108,6 +108,11 @@ async function getQueueDepths(): Promise<Record<string, { waiting: number }>> {
   return depths;
 }
 
+// Simple ping — used by Dockerfile HEALTHCHECK and Railway
+router.get('/', (_req, res) => {
+  res.json({ status: 'ok', uptime_seconds: Math.floor(process.uptime()) });
+});
+
 router.get('/detailed', async (_req, res) => {
   try {
     const [

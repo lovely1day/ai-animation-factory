@@ -1,14 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "name": "ai-animation-factory",
-  "buildCommand": "cd apps/web && pnpm build",
+  "name": "ai-animation-factory-web",
+  "buildCommand": "pnpm --filter @ai-animation-factory/shared build && pnpm --filter @ai-animation-factory/web build",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://api-ai-animation-factory.vercel.app"
-  },
   "headers": [
     {
       "source": "/(.*)",
@@ -16,10 +13,6 @@
         {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
         },
         {
           "key": "X-XSS-Protection",

@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+const ALLOWED_ORIGINS = [
+  "https://feelthemusic.app",
+  "https://www.feelthemusic.app",
+  "http://localhost:8080",
+];
+
 const nextConfig = {
   reactStrictMode: true,
 
@@ -18,6 +24,20 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: `frame-ancestors ${ALLOWED_ORIGINS.join(" ")}`,
+          },
+        ],
+      },
+    ];
   },
 
   webpack: (config) => {
