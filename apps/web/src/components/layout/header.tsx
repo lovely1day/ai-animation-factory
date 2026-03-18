@@ -3,25 +3,112 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Film, ChevronLeft, ChevronRight, LogIn, LogOut, User, ChevronDown, Globe, LayoutDashboard } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Film,
+  LayoutDashboard,
+  BarChart3,
+  Settings,
+  Plus,
+  ChevronDown,
+  LogOut,
+  User,
+  Globe,
+  Command,
+  Search,
+  Bell,
+  Menu,
+  X
+} from "lucide-react";
 import { useLang } from "@/contexts/language-context";
 import { supabase } from "@/lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
+// Command Palette Button
+function CmdButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      suppressHydrationWarning
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 text-gray-400 hover:text-white text-sm transition-all"
+    >
+      <Search className="w-4 h-4" />
+      <span className="text-xs">Search</span>
+      <kbd className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono text-gray-500">
+        <Command className="w-3 h-3" />
+        K
+      </kbd>
+    </button>
+  );
+}
+
+// Nav Link Component
+function NavLink({ 
+  href, 
+  icon: Icon, 
+  label, 
+  isActive 
+}: { 
+  href: string; 
+  icon: any; 
+  label: string; 
+  isActive: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+        isActive
+          ? "text-white"
+          : "text-gray-400 hover:text-white hover:bg-white/5"
+      }`}
+    >
+      {isActive && (
+        <motion.div
+          layoutId="activeNav"
+          className="absolute inset-0 bg-white/10 rounded-lg"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        />
+      )}
+      <span className="relative flex items-center gap-2">
+        <Icon className={`w-4 h-4 ${isActive ? "text-purple-400" : ""}`} />
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+// Notification Badge
+function NotificationBell({ count }: { count: number }) {
+  return (
+    <button suppressHydrationWarning className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+      <Bell className="w-5 h-5" />
+      {count > 0 && (
+        <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function AppHeader() {
   const { lang, setLang, t } = useLang();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isHome = pathname === "/";
+  const isDashboard = pathname?.startsWith("/cms") || false;
 
-  // Track scroll for header style
+  // Track scroll
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -44,156 +131,213 @@ export default function AppHeader() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-  };
+  // Keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUserMenuOpen(false);
   };
 
-  const BackIcon = lang === "ar" ? ChevronRight : ChevronLeft;
+  const navItems = [
+    { href: "/cms/episodes", icon: Film, label: t("المشاريع", "Projects") },
+    { href: "/cms/queue", icon: LayoutDashboard, label: t("الإنتاج", "Production") },
+    { href: "/cms/analytics", icon: BarChart3, label: t("التحليلات", "Analytics") },
+  ];
 
   return (
-    <header
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-[#0a0a0f]/95 backdrop-blur-2xl border-b border-white/10 shadow-2xl shadow-black/40"
-          : "bg-[#0a0a0f]/70 backdrop-blur-xl border-b border-white/5"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-
-        {/* ── Left side: Back + Logo ── */}
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Back button — hidden on home */}
-          {!isHome && (
-            <button
-              onClick={() => router.back()}
-              aria-label={t("رجوع", "Go back")}
-              className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 flex items-center justify-center text-gray-400 hover:text-white transition-all"
-            >
-              <BackIcon className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:shadow-purple-500/40 transition-shadow">
-              <Film className="w-4 h-4 text-white" />
-            </div>
-            <span className="hidden sm:block font-bold text-base bg-gradient-to-r from-purple-400 via-violet-400 to-pink-400 bg-clip-text text-transparent whitespace-nowrap">
-              {t("مصنع الأنيميشن", "AI Animation Factory")}
-            </span>
-          </Link>
-        </div>
-
-
-        {/* ── Right side: Auth only ── */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-
-          {/* Queue link */}
-          <Link
-            href="/cms/queue"
-            className={`hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-              pathname.startsWith("/cms/queue")
-                ? "bg-purple-500/15 border-purple-500/25 text-purple-300"
-                : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-purple-500/30 text-gray-300 hover:text-white"
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4 text-purple-400" />
-            <span className="font-medium">{t("مراقبة الإنتاج", "Queue")}</span>
-          </Link>
-
-          {/* Language toggle */}
-          <button
-            type="button"
-            onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            aria-label={t("تغيير اللغة", "Toggle language")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 text-sm text-gray-300 hover:text-white transition-all"
-          >
-            <Globe className="w-4 h-4 text-purple-400" />
-            <span className="font-medium">{lang === "ar" ? "EN" : "عربي"}</span>
-          </button>
-
-          {/* Auth section */}
-          {user ? (
-            /* User menu */
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 transition-all"
-              >
-                {user.user_metadata?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.user_metadata.avatar_url}
-                    alt="avatar"
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <User className="w-3.5 h-3.5 text-white" />
-                  </div>
-                )}
-                <span className="hidden sm:block text-sm text-gray-300 max-w-[100px] truncate">
-                  {user.user_metadata?.name || user.email?.split("@")[0]}
+    <>
+      <header
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
+          scrolled
+            ? "bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/10"
+            : "bg-transparent"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="h-16 flex items-center justify-between gap-4">
+            
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 via-violet-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:shadow-purple-500/40 transition-all duration-300">
+                <Film className="w-5 h-5 text-white" />
+                <div className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <div className="hidden sm:block">
+                <span className="block font-bold text-sm text-white leading-tight">
+                  AI Animation
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                <span className="block text-[10px] text-purple-400 font-medium">
+                  Factory
+                </span>
+              </div>
+            </Link>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  isActive={pathname?.startsWith(item.href) || false}
+                />
+              ))}
+            </nav>
+
+            {/* Right Side */}
+            <div className="flex items-center gap-2">
+              {/* Command Palette */}
+              <CmdButton onClick={() => setSearchOpen(true)} />
+
+              {/* Create Button */}
+              <Link
+                href="/create"
+                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-medium shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all hover:scale-105"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{t("إنشاء", "Create")}</span>
+              </Link>
+
+              {/* Notifications */}
+              <NotificationBell count={3} />
+
+              {/* Language Toggle */}
+              <button
+                onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+                suppressHydrationWarning
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                title={t("تغيير اللغة", "Toggle language")}
+              >
+                <Globe className="w-5 h-5" />
               </button>
 
-              {userMenuOpen && (
-                <div className="absolute top-full mt-2 end-0 w-52 bg-[#0f0f1a] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-white/5">
-                    <p className="text-xs text-gray-500">{t("مسجل بـ", "Signed in as")}</p>
-                    <p className="text-sm text-white truncate mt-0.5">{user.email}</p>
-                  </div>
-                  <div className="p-1.5">
-                    <Link
-                      href="/cms/episodes"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-all"
-                    >
-                      <Film className="w-4 h-4 text-purple-400" />
-                      {t("لوحة التحكم", "Dashboard")}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      {t("تسجيل الخروج", "Sign out")}
-                    </button>
-                  </div>
+              {/* User Menu */}
+              {user ? (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 transition-all"
+                  >
+                    {user.user_metadata?.avatar_url ? (
+                      <img
+                        src={user.user_metadata.avatar_url}
+                        alt=""
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {userMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-full right-0 mt-2 w-56 bg-[#0f0f1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                      >
+                        <div className="p-4 border-b border-white/5">
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <div className="p-2">
+                          <Link
+                            href="/cms/settings"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                          >
+                            <Settings className="w-4 h-4" />
+                            {t("الإعدادات", "Settings")}
+                          </Link>
+                          <button
+                            onClick={handleSignOut}
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            {t("تسجيل الخروج", "Sign out")}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-all"
+                >
+                  {t("دخول", "Sign in")}
+                </Link>
               )}
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                suppressHydrationWarning
+                className="md:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
-          ) : (
-            /* Google Sign-in */
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-semibold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all"
-            >
-              {/* Google icon */}
-              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                <path fill="#fff" fillOpacity=".9" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#fff" fillOpacity=".75" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#fff" fillOpacity=".6" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#fff" fillOpacity=".5" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span className="hidden sm:block">{t("دخول بجوجل", "Sign in with Google")}</span>
-              <LogIn className="w-4 h-4 sm:hidden" />
-            </button>
-          )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed inset-x-0 top-16 z-40 md:hidden bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/10"
+          >
+            <nav className="p-4 space-y-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    pathname?.startsWith(item.href)
+                      ? "bg-purple-500/20 text-purple-300"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {item.label}
+                </Link>
+              ))}
+              <Link
+                href="/create"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium"
+              >
+                <Plus className="w-5 h-5" />
+                {t("إنشاء حلقة", "Create Episode")}
+              </Link>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Spacer for fixed header */}
+      <div className="h-16" />
+    </>
   );
 }

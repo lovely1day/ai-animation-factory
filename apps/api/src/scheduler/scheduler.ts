@@ -1,187 +1,231 @@
-import cron from 'node-cron';
-import { queueService } from '../services/queue.service';
-import { supabase } from '../config/supabase';
-import { logger } from '../utils/logger';
-import { env } from '../config/env';
+import cron from "node-cron";
+import { supabase } from "../config/supabase";
+import { PipelineService } from "../services/pipeline.service";
+import { logger } from "../utils/logger";
+import { env } from "../config/env";
+import { JOB_QUEUE_NAMES } from "@ai-animation-factory/shared";
+import { Queue } from "bullmq";
+import { redisConnection } from "../config/redis";
 
-export class Scheduler {
-  private tasks: cron.ScheduledTask[] = [];
+let tasks: cron.ScheduledTask[] = [];
 
-  start() {
-    logger.info('Starting automation scheduler');
+// Queue instances for recovery
+const recoveryQueues: Record<string, Queue> = {};
 
-    // Generate episodes every hour
-    const generationTask = cron.schedule('0 * * * *', async () => {
-      await this.generateEpisodes();
-    });
-    this.tasks.push(generationTask);
-
-    // Retry failed jobs every 30 minutes
-    const retryTask = cron.schedule('*/30 * * * *', async () => {
-      await this.retryFailedJobs();
-    });
-    this.tasks.push(retryTask);
-
-    // Cleanup old records daily at 2 AM
-    const cleanupTask = cron.schedule('0 2 * * *', async () => {
-      await this.cleanup();
-    });
-    this.tasks.push(cleanupTask);
-
-    // Update episode counts every 5 minutes
-    const metricsTask = cron.schedule('*/5 * * * *', async () => {
-      await this.updateMetrics();
-    });
-    this.tasks.push(metricsTask);
-
-    logger.info('Scheduler started with 4 tasks');
+function getQueue(name: string): Queue {
+  if (!recoveryQueues[name]) {
+    recoveryQueues[name] = new Queue(name, { connection: redisConnection });
   }
+  return recoveryQueues[name];
+}
 
-  stop() {
-    this.tasks.forEach((task) => task.stop());
-    this.tasks = [];
-    logger.info('Scheduler stopped');
-  }
+/**
+ * Auto-generate new episodes on a schedule.
+ * Picks episodes in 'draft' status and runs the pipeline on them.
+ */
+async function runAutoGeneration() {
+  try {
+    const limit = Math.min(env.EPISODES_PER_HOUR, 10);
 
-  private async generateEpisodes() {
-    try {
-      // Get config
-      const { data: config } = await supabase
-        .from('scheduler_config')
-        .select('key, value')
-        .in('key', ['episodes_per_hour', 'genres', 'audiences']);
+    const { data: episodes, error } = await supabase
+      .from("episodes")
+      .select("id, title, description, genre, target_audience, approval_steps")
+      .eq("status", "draft")
+      .is("workflow_step", null)
+      .order("created_at", { ascending: true })
+      .limit(limit);
 
-      const configMap = Object.fromEntries(
-        (config || []).map((c) => [c.key, c.value])
-      );
+    if (error) {
+      logger.error({ error: error.message }, "Scheduler: failed to fetch draft episodes");
+      return;
+    }
 
-      const episodesPerHour = parseInt(String(configMap.episodes_per_hour || env.EPISODES_PER_HOUR), 10);
-      const genres = this.parseJsonConfig(String(configMap.genres), [
-        'adventure', 'comedy', 'sci-fi', 'fantasy', 'educational',
-      ]) as string[];
-      const audiences = this.parseJsonConfig(String(configMap.audiences), [
-        'children', 'teens', 'adults', 'general',
-      ]) as string[];
+    if (!episodes || episodes.length === 0) {
+      logger.debug("Scheduler: no draft episodes to process");
+      return;
+    }
 
-      logger.info({ count: episodesPerHour }, 'Auto-generating episodes');
+    logger.info({ count: episodes.length }, "Scheduler: starting auto-generation");
 
-      for (let i = 0; i < episodesPerHour; i++) {
-        const genre = genres[Math.floor(Math.random() * genres.length)];
-        const audience = audiences[Math.floor(Math.random() * audiences.length)];
-
-        await queueService.dispatchEpisodeGeneration({ genre, target_audience: audience });
-
-        // Stagger job submissions
-        await new Promise((resolve) => setTimeout(resolve, 500));
+    for (const episode of episodes) {
+      try {
+        await PipelineService.run(episode);
+        logger.info({ episode_id: episode.id, title: episode.title }, "Scheduler: pipeline started");
+      } catch (err: any) {
+        logger.error({ error: err.message, episode_id: episode.id }, "Scheduler: pipeline start failed");
       }
-
-      logger.info(`Dispatched ${episodesPerHour} episode generation jobs`);
-    } catch (err) {
-      logger.error({ error: (err as Error).message }, 'Failed to auto-generate episodes');
     }
-  }
-
-  private async retryFailedJobs() {
-    try {
-      const { data: failedJobs } = await supabase
-        .from('generation_jobs')
-        .select('episode_id, job_type, bull_job_id')
-        .eq('status', 'failed')
-        .lt('attempts', 3)
-        .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-      if (!failedJobs || failedJobs.length === 0) return;
-
-      logger.info(`Retrying ${failedJobs.length} failed jobs`);
-
-      for (const job of failedJobs) {
-        try {
-          const queueName = this.jobTypeToQueueName(job.job_type);
-          if (queueName) await queueService.retryFailedJobs(queueName);
-        } catch (err) {
-          logger.warn({ job_type: job.job_type, error: (err as Error).message }, 'Failed to retry job');
-        }
-      }
-    } catch (err) {
-      logger.error({ error: (err as Error).message }, 'Failed to retry jobs');
-    }
-  }
-
-  private async cleanup() {
-    try {
-      const { data: config } = await supabase
-        .from('scheduler_config')
-        .select('value')
-        .eq('key', 'cleanup_days')
-        .single();
-
-      const cleanupDays = parseInt(String(config?.value || 30), 10);
-      const cutoffDate = new Date(Date.now() - cleanupDays * 24 * 60 * 60 * 1000).toISOString();
-
-      // Delete old completed jobs
-      await supabase
-        .from('generation_jobs')
-        .delete()
-        .eq('status', 'completed')
-        .lt('completed_at', cutoffDate);
-
-      // Clean BullMQ queues
-      await queueService.cleanOldJobs('idea', 7 * 24 * 60 * 60 * 1000);  // Clean 7 days old
-
-      logger.info({ cutoff_date: cutoffDate }, 'Cleanup completed');
-    } catch (err) {
-      logger.error({ error: (err as Error).message }, 'Cleanup failed');
-    }
-  }
-
-  private async updateMetrics() {
-    try {
-      // Update view counts from analytics
-      const { data: viewCounts } = await supabase
-        .from('analytics')
-        .select('episode_id')
-        .eq('event_type', 'view');
-
-      if (!viewCounts) return;
-
-      const counts = viewCounts.reduce((acc, row) => {
-        acc[row.episode_id] = (acc[row.episode_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      for (const [episodeId, count] of Object.entries(counts)) {
-        await supabase
-          .from('episodes')
-          .update({ view_count: count })
-          .eq('id', episodeId);
-      }
-    } catch (err) {
-      logger.error({ error: (err as Error).message }, 'Metrics update failed');
-    }
-  }
-
-  private parseJsonConfig<T>(value: string, fallback: T): T {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return fallback;
-    }
-  }
-
-  private jobTypeToQueueName(jobType: string): string | null {
-    const map: Record<string, string> = {
-      idea_generation: 'idea-generation',
-      script_writing: 'script-writing',
-      image_generation: 'image-generation',
-      animation: 'animation',
-      voice_generation: 'voice-generation',
-      music_generation: 'music-generation',
-      video_assembly: 'video-assembly',
-      subtitle_generation: 'subtitle-generation',
-      thumbnail_generation: 'thumbnail-generation',
-    };
-    return map[jobType] || null;
+  } catch (err: any) {
+    logger.error({ error: err.message }, "Scheduler: auto-generation error");
   }
 }
 
-export const scheduler = new Scheduler();
+
+/**
+ * Daily cleanup: archive episodes that are stuck for > 24 hours.
+ */
+async function dailyCleanup() {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await supabase
+      .from("episodes")
+      .update({
+        status: "archived",
+        workflow_status: "rejected",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("status", "generating")
+      .lt("updated_at", oneDayAgo);
+
+    if (error) {
+      logger.error({ error: error.message }, "Scheduler: cleanup failed");
+    } else {
+      logger.info("Scheduler: daily cleanup complete");
+    }
+  } catch (err: any) {
+    logger.error({ error: err.message }, "Scheduler: cleanup error");
+  }
+}
+
+/**
+ * Map workflow_step (DB enum) → BullMQ queue name.
+ * Only steps that exist in the schema CHECK constraint are listed.
+ */
+const STEP_QUEUE_MAP: Record<string, string> = {
+  script:    JOB_QUEUE_NAMES.SCRIPT,
+  images:    JOB_QUEUE_NAMES.IMAGE,
+  voice:     JOB_QUEUE_NAMES.VOICE,
+  music:     JOB_QUEUE_NAMES.MUSIC,
+  animation: JOB_QUEUE_NAMES.ANIMATION,
+  assembly:  JOB_QUEUE_NAMES.ASSEMBLY,
+  subtitles: JOB_QUEUE_NAMES.SUBTITLE,
+};
+
+/**
+ * Recover episodes stuck in processing states after server restart.
+ * On startup, scan Supabase for episodes stuck in processing states and re-enqueue them.
+ * 
+ * @returns Number of episodes successfully recovered
+ */
+async function recoverStuckJobs(): Promise<number> {
+  const STUCK_THRESHOLD_MINUTES = 30;
+  const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MINUTES * 60 * 1000).toISOString();
+
+  // Find episodes stuck in processing workflow_status (older than threshold)
+  const { data: stuckEpisodes, error } = await supabase
+    .from("episodes")
+    .select("id, status, workflow_step, workflow_status, title")
+    .eq("status", "generating")
+    .eq("workflow_status", "processing")
+    .lt("updated_at", cutoff);
+
+  if (error) {
+    logger.error({ error: error.message }, "Scheduler: recoverStuckJobs query failed");
+    return 0;
+  }
+
+  if (!stuckEpisodes?.length) {
+    logger.info("Scheduler: no stuck episodes to recover");
+    return 0;
+  }
+
+  logger.warn({ count: stuckEpisodes.length }, "Scheduler: recovering stuck episodes");
+
+  let recoveredCount = 0;
+
+  for (const episode of stuckEpisodes) {
+    const step = episode.workflow_step;
+    const mapping = STEP_QUEUE_MAP[step];
+
+    if (!mapping) {
+      logger.warn({ episode_id: episode.id, step }, "Scheduler: unknown workflow step, skipping recovery");
+      continue;
+    }
+
+    try {
+      // Reset workflow_status to allow reprocessing (preserves all progress data)
+      await supabase
+        .from("episodes")
+        .update({
+          workflow_status: "pending",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", episode.id);
+
+      // Re-enqueue to the specific step's queue (not full restart)
+      const queue = getQueue(mapping);
+      await queue.add(
+        `recover-${step}`,
+        { episode_id: episode.id, recovered: true, original_step: step },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        }
+      );
+
+      recoveredCount++;
+      logger.info(
+        { episode_id: episode.id, step, queue: mapping },
+        "Scheduler: recovered stuck episode"
+      );
+    } catch (err: any) {
+      logger.error(
+        { error: err.message, episode_id: episode.id },
+        "Scheduler: failed to recover episode"
+      );
+    }
+  }
+
+  return recoveredCount;
+}
+
+/**
+ * Initialize scheduler and recover any stuck jobs from previous crashes.
+ */
+async function initScheduler() {
+  logger.info("Scheduler: initializing");
+
+  // Recover stuck jobs from previous crashes (run once on startup)
+  const recoveredCount = await recoverStuckJobs();
+  if (recoveredCount > 0) {
+    logger.info({ recoveredCount }, "Scheduler: recovered stuck episodes");
+  }
+
+  return recoveredCount;
+}
+
+export const scheduler = {
+  async start() {
+    logger.info("Scheduler: starting cron jobs");
+
+    // Initialize and recover stuck jobs
+    await initScheduler();
+
+    // Auto-generation: every hour
+    tasks.push(
+      cron.schedule("0 * * * *", runAutoGeneration, { name: "auto-generation" })
+    );
+
+    // Recover stuck jobs: every 30 minutes (smarter than full restart)
+    tasks.push(
+      cron.schedule("*/30 * * * *", recoverStuckJobs, { name: "recover-stuck" })
+    );
+
+    // Daily cleanup: every day at 03:00 AM
+    tasks.push(
+      cron.schedule("0 3 * * *", dailyCleanup, { name: "daily-cleanup" })
+    );
+
+    logger.info({ jobs: tasks.length }, "Scheduler: all cron jobs registered");
+  },
+
+  stop() {
+    logger.info("Scheduler: stopping cron jobs");
+    for (const task of tasks) {
+      task.stop();
+    }
+    tasks = [];
+    logger.info("Scheduler: all cron jobs stopped");
+  },
+};

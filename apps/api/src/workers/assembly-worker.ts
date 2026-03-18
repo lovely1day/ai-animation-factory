@@ -1,96 +1,75 @@
-import { Worker, Job } from 'bullmq';
-import { redisConnection } from '../config/redis';
-import { supabase } from '../config/supabase';
-import { JOB_QUEUE_NAMES } from '@ai-animation-factory/shared';
-import { videoAssemblyService } from '../services/video-assembly.service';
-import { queues, defaultJobOptions } from '../services/queue.service';
-import { logger } from '../utils/logger';
+import { Worker, Queue } from "bullmq";
+import { redisConnection } from "../config/redis";
+import { videoAssemblyService } from "../services/video-assembly.service";
+import { logger } from "../utils/logger";
+import { supabase } from "../config/supabase";
+
+const subtitleQueue = new Queue("subtitle", { connection: redisConnection });
 
 export function createAssemblyWorker() {
   return new Worker(
-    JOB_QUEUE_NAMES.ASSEMBLY,
-    async (job: Job) => {
+    "assembly",
+    async (job) => {
       const { episode_id, scenes, music_url } = job.data;
-      logger.info({ job_id: job.id, episode_id }, 'Processing video assembly job');
 
-      // Record job start
-      await supabase.from('generation_jobs').insert({
+      logger.info({ episode_id, scene_count: scenes.length }, "Starting video assembly");
+
+      await job.updateProgress(10);
+
+      // Assemble full video with FFmpeg
+      const result = await videoAssemblyService.assemble({
         episode_id,
-        job_type: 'video_assembly',
-        status: 'active',
-        bull_job_id: job.id,
-        progress: 0,
-        started_at: new Date().toISOString(),
+        scenes,
+        music_url: music_url || "",
       });
-
-      await supabase.from('episodes').update({ status: 'processing' }).eq('id', episode_id);
-
-      await job.updateProgress(5);
-
-      const result = await videoAssemblyService.assemble({ episode_id, scenes, music_url });
 
       await job.updateProgress(80);
 
-      // Update episode with video URL and duration
+      // Save video URL to episode
       await supabase
-        .from('episodes')
+        .from("episodes")
         .update({
           video_url: result.video_url,
           duration_seconds: result.duration_seconds,
-          status: 'completed',
+          workflow_step: "subtitles",
+          workflow_status: "processing",
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', episode_id);
+        .eq("id", episode_id);
 
-      // Save video asset
-      await supabase.from('assets').insert({
+      // Save asset record
+      await supabase.from("assets").insert({
         episode_id,
-        asset_type: 'video',
+        asset_type: "video",
         file_url: result.video_url,
         file_key: result.file_key,
-        mime_type: 'video/mp4',
+        mime_type: "video/mp4",
         duration_seconds: result.duration_seconds,
       });
 
-      // Update job record
-      await supabase
-        .from('generation_jobs')
-        .update({
-          status: 'completed',
-          progress: 90,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('episode_id', episode_id)
-        .eq('job_type', 'video_assembly');
-
       await job.updateProgress(90);
 
-      // Dispatch subtitle generation
-      await queues.subtitle.add(
-        'generate-subtitles',
-        { episode_id, video_url: result.video_url },
-        { ...defaultJobOptions, priority: 6 }
-      );
-
-      // Auto-publish if configured
-      const { data: config } = await supabase
-        .from('scheduler_config')
-        .select('value')
-        .eq('key', 'auto_publish')
-        .single();
-
-      if (config?.value === 'true' || config?.value === true) {
-        await supabase
-          .from('episodes')
-          .update({ status: 'published', published_at: new Date().toISOString() })
-          .eq('id', episode_id);
-        logger.info({ episode_id }, 'Episode auto-published');
-      }
+      // Dispatch subtitle generation job
+      await subtitleQueue.add("generate-subtitles", {
+        episode_id,
+        video_url: result.video_url,
+        scenes: scenes.map((s: any) => ({
+          scene_number: s.scene_number,
+          duration_seconds: s.duration_seconds,
+        })),
+      });
 
       await job.updateProgress(100);
-      logger.info({ episode_id, video_url: result.video_url }, 'Video assembly completed');
 
-      return { episode_id, video_url: result.video_url };
+      logger.info({ episode_id, video_url: result.video_url, duration: result.duration_seconds }, "Assembly complete");
+
+      return {
+        success: true,
+        video_url: result.video_url,
+        file_key: result.file_key,
+        duration_seconds: result.duration_seconds,
+      };
     },
-    { connection: redisConnection, concurrency: 2 }
+    { connection: redisConnection, concurrency: 1 }
   );
 }

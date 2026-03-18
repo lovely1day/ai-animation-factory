@@ -28,6 +28,14 @@ export function createMusicWorker() {
         duration_seconds: result.duration_seconds,
       });
 
+      // Save music_url to episode
+      if (result.music_url) {
+        await supabase
+          .from('episodes')
+          .update({ music_url: result.music_url, updated_at: new Date().toISOString() })
+          .eq('id', episode_id);
+      }
+
       await job.updateProgress(100);
       logger.info({ episode_id }, 'Music generation completed');
 

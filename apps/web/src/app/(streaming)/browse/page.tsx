@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Film, Clock, Play } from "lucide-react";
 import type { Episode } from "@ai-animation-factory/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3004";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const GENRES = [
   { id: "all", label: "All" },
@@ -51,7 +51,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const featured = episodes[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-white">
+    <div className="min-h-screen bg-transparent text-white">
 
       {/* ── Hero — featured episode ── */}
       {featured && (

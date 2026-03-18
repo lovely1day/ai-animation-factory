@@ -1,5 +1,4 @@
-# Supabase Configuration
-project_id = "ai-animation-factory"
+project_id = "ebroeczeulacxtcwnrll"
 
 [api]
 enabled = true
@@ -10,8 +9,25 @@ max_rows = 1000
 
 [db]
 port = 54322
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
 port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[analytics]
+enabled = false

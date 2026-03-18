@@ -4,6 +4,7 @@ import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
+import { AnimatedBackground } from '@/components/animated-background';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head suppressHydrationWarning />
       <body className="bg-[#0a0a0f] text-white antialiased font-sans flex flex-col min-h-screen">
         <LanguageProvider>
+          <AnimatedBackground />
           <AppHeader />
           <main className="flex-1 pt-16">
             {children}

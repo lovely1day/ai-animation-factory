@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Edit3, ChevronDown, ChevronUp, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Scene {
   id: string;
@@ -24,6 +24,8 @@ interface Episode {
   theme?: string;
   tags?: string[];
   status: string;
+  workflow_step?: string;
+  workflow_status?: string;
   genre: string;
   target_audience: string;
 }
@@ -53,15 +55,18 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
   const fetchReview = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/episodes/${id}/review`);
+      const res = await fetch(`${API_URL}/api/episodes/${id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      setData(json.data);
-      setTitle(json.data.episode.title || '');
-      setDescription(json.data.episode.description || '');
-      setTheme(json.data.episode.theme || '');
-      setTags((json.data.episode.tags || []).join(', '));
-      setScenes(json.data.scenes || []);
+      // API returns flat: { ...episode, scenes, approval_logs, recent_jobs }
+      const { scenes: rawScenes, approval_logs: _al, recent_jobs: _rj, ...episode } = json.data;
+      setData({ episode, scenes: rawScenes || [] });
+      setTitle(episode.title || '');
+      setDescription(episode.description || '');
+      setTheme(episode.theme || '');
+      setTags((episode.tags || []).join(', '));
+      setScenes(rawScenes || []);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -75,16 +80,20 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/episodes/${id}/approve-script`, {
+      const res = await fetch(`${API_URL}/api/approval/episodes/${id}/script`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
-          description,
-          theme,
-          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+          action: 'approved',
+          modifications: {
+            title,
+            description,
+            theme,
+            tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+          },
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       setSuccess('تم الموافقة! جاري كتابة السيناريو الكامل...');
@@ -100,11 +109,12 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/episodes/${id}/approve-images`, {
+      const res = await fetch(`${API_URL}/api/approval/episodes/${id}/images`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenes: scenes.map(s => ({ id: s.id, visual_prompt: s.visual_prompt })) }),
+        body: JSON.stringify({ action: 'approved' }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       setSuccess('تم الموافقة! جاري توليد الصور والأنيميشن...');
@@ -137,8 +147,13 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const isScriptApproval = data.episode.status === 'awaiting_script_approval';
-  const isImageApproval = data.episode.status === 'awaiting_image_approval';
+  // Support both old status values and new workflow fields
+  const isScriptApproval =
+    data.episode.status === 'awaiting_script_approval' ||
+    (data.episode.workflow_step === 'script' && data.episode.workflow_status === 'waiting_approval');
+  const isImageApproval =
+    data.episode.status === 'awaiting_image_approval' ||
+    (data.episode.workflow_step === 'images' && data.episode.workflow_status === 'waiting_approval');
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">

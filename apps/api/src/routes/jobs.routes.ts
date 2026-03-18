@@ -1,134 +1,171 @@
-import { Router, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth';
+import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { queues } from '../services/queue.service';
+import { logger } from '../utils/logger';
+import { checkRedisHealth, redisConnection } from '../config/redis';
 
-export const jobsRouter = Router();
+const router: Router = Router();
 
-// GET /api/jobs/:episodeId/status - Get job status with scenes
-jobsRouter.get('/:episodeId/status', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get queue statistics for all workers
+ * GET /api/jobs/queue-stats
+ */
+router.get('/queue-stats', async (req, res) => {
   try {
-    const { episodeId } = req.params;
-
-    // Get episode
-    const { data: episode, error: epError } = await supabase
-      .from('episodes')
-      .select('*')
-      .eq('id', episodeId)
-      .single();
-
-    if (epError) throw epError;
-
-    // Get scenes
-    const { data: scenes, error: scError } = await supabase
-      .from('scenes')
-      .select('*')
-      .eq('episode_id', episodeId)
-      .order('scene_number');
-
-    if (scError) throw scError;
-
-    // Get recent jobs
-    const { data: jobs, error: jobError } = await supabase
-      .from('generation_jobs')
-      .select('*')
-      .eq('episode_id', episodeId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (jobError) throw jobError;
-
-    // Calculate progress
-    const totalScenes = scenes?.length || 0;
-    const completedScenes = scenes?.filter(s => s.status === 'completed').length || 0;
-    // Scene progress calculated but not used - reserved for future use
-    void (totalScenes > 0 ? Math.round((completedScenes / totalScenes) * 100) : 0);
-
-    // Determine current stage
-    let stage = 'pending';
-    let progress = 0;
-
-    if (jobs?.some(j => j.job_type === 'idea_generation' && j.status === 'active')) {
-      stage = 'generating_idea';
-      progress = 10;
-    } else if (jobs?.some(j => j.job_type === 'script_writing' && j.status === 'active')) {
-      stage = 'writing_script';
-      progress = 20;
-    } else if (jobs?.some(j => j.job_type === 'image_generation' && j.status === 'active')) {
-      stage = 'generating_images';
-      progress = 30 + Math.round((completedScenes / totalScenes) * 40);
-    } else if (jobs?.some(j => j.job_type === 'voice_generation' && j.status === 'active')) {
-      stage = 'generating_voices';
-      progress = 70 + Math.round((completedScenes / totalScenes) * 15);
-    } else if (jobs?.some(j => j.job_type === 'video_assembly' && j.status === 'active')) {
-      stage = 'assembling_video';
-      progress = 90;
-    } else if (episode?.status === 'completed') {
-      stage = 'completed';
-      progress = 100;
+    // Check Redis connection
+    const redisHealthy = await checkRedisHealth();
+    
+    if (!redisHealthy) {
+      return res.json({
+        success: true,
+        data: [],
+        warning: 'Redis not connected - queue stats unavailable'
+      });
     }
+
+    // For now, return mock queue stats based on generation_jobs table
+    const { data: jobs, error } = await supabase
+      .from('generation_jobs')
+      .select('queue_name, status')
+      .not('queue_name', 'is', null);
+
+    if (error) throw error;
+
+    // Aggregate stats by queue
+    const queueMap = new Map();
+    
+    const jobTypes = ['idea', 'script', 'image', 'animation', 'voice', 'music', 'assembly', 'subtitle', 'thumbnail'];
+    
+    jobTypes.forEach(type => {
+      queueMap.set(type, {
+        name: type,
+        active: 0,
+        waiting: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0
+      });
+    });
+
+    // Count jobs by status
+    (jobs || []).forEach((job: any) => {
+      const queue = queueMap.get(job.queue_name) || queueMap.get('idea');
+      if (queue) {
+        if (job.status === 'active') queue.active++;
+        else if (job.status === 'pending') queue.waiting++;
+        else if (job.status === 'completed') queue.completed++;
+        else if (job.status === 'failed') queue.failed++;
+        else if (job.status === 'delayed') queue.delayed++;
+      }
+    });
+
+    const queueStats = Array.from(queueMap.values());
 
     res.json({
       success: true,
-      data: {
-        episode,
-        stage,
-        progress,
-        scenes: scenes || [],
-        jobs: jobs || [],
-        totalScenes,
-        completedScenes,
-      }
+      data: queueStats
     });
-  } catch (err) {
-    next(err);
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to get queue stats');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// GET /api/jobs/:episodeId/scenes - Get scenes only
-jobsRouter.get('/:episodeId/scenes', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get job status for an episode
+ * GET /api/jobs/:episodeId/status
+ */
+router.get('/:episodeId/status', async (req, res) => {
   try {
     const { episodeId } = req.params;
 
-    const { data: scenes, error } = await supabase
-      .from('scenes')
+    const { data: jobs, error } = await supabase
+      .from('generation_jobs')
       .select('*')
       .eq('episode_id', episodeId)
-      .order('scene_number');
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
     res.json({
       success: true,
-      data: scenes || []
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/jobs/queue-stats - Get queue statistics
-jobsRouter.get('/queue-stats', async (_req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const queueNames = ['idea', 'script', 'image', 'animation', 'voice', 'music', 'assembly', 'subtitle', 'thumbnail'];
-    const stats = [];
-
-    for (const name of queueNames) {
-      try {
-        const queue = queues[name as keyof typeof queues];
-        if (queue) {
-          const counts = await queue.getJobCounts('active', 'waiting', 'completed', 'failed', 'delayed');
-          stats.push({ name, ...counts });
-        }
-      } catch (_e) {
-        stats.push({ name, error: 'Queue not available' });
+      data: {
+        episode_id: episodeId,
+        jobs: jobs || []
       }
-    }
-
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    next(err);
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.episodeId }, 'Failed to get job status');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-export default jobsRouter;
+/**
+ * Retry failed jobs
+ * POST /api/jobs/retry
+ */
+router.post('/retry', async (req, res) => {
+  try {
+    const { queue_name } = req.body;
+
+    // Update failed jobs to pending
+    const { data, error } = await supabase
+      .from('generation_jobs')
+      .update({ status: 'pending', error_message: null })
+      .eq('status', 'failed')
+      .eq('queue_name', queue_name || 'idea')
+      .select();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: `Retried ${data?.length || 0} failed jobs`,
+      data
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to retry jobs');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Clean completed jobs
+ * POST /api/jobs/clean
+ */
+router.post('/clean', async (req, res) => {
+  try {
+    const { days = 7 } = req.body;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const { error, count } = await supabase
+      .from('generation_jobs')
+      .delete()
+      .eq('status', 'completed')
+      .lt('completed_at', cutoffDate.toISOString());
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: `Cleaned ${count || 0} completed jobs older than ${days} days`
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to clean jobs');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+export default router;

@@ -6,7 +6,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { Eye, Heart, Share2, Clock, Film, Calendar, Play } from "lucide-react";
 import type { Episode } from "@ai-animation-factory/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3004";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -73,12 +73,11 @@ export default async function WatchPage({ params }: WatchPageProps) {
 
   if (!episode || !["published", "completed"].includes(episode.status)) notFound();
 
-  const related = await getRelated(episode.genre, episode.id);
+  const related = await getRelated(episode.genre || 'general', episode.id);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 text-white">
-      {/* Background grid */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(rgba(168,85,247,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(168,85,247,0.5)_1px,transparent_1px)] bg-[size:50px_50px]" />
+    <div className="min-h-screen bg-transparent text-white">
+
 
       <div className="relative max-w-6xl mx-auto px-4 py-8 pt-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -88,9 +87,9 @@ export default async function WatchPage({ params }: WatchPageProps) {
 
             {/* Video player */}
             <div className="rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/50">
-              {episode.video_url ? (
+              {episode.final_video_url ? (
                 <VideoPlayer
-                  src={episode.video_url}
+                  src={episode.final_video_url}
                   subtitleUrl={episode.subtitle_url}
                   poster={episode.thumbnail_url}
                   title={episode.title}

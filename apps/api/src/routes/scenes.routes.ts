@@ -1,266 +1,203 @@
-import { Router, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth';
+import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { AppError } from '../middleware/error-handler';
+import { logger } from '../utils/logger';
+import { imageGenerationService } from '../services/image-generation.service';
 
-export const scenesRouter = Router();
+const scenesRouter: Router = Router();
 
-// GET /api/scenes/:episodeId/script - Get full script with all scenes
-scenesRouter.get('/:episodeId/script', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get all scenes for an episode
+ * GET /api/scenes?episode_id=...
+ */
+scenesRouter.get('/', async (req, res) => {
   try {
-    const { episodeId } = req.params;
+    const { episode_id } = req.query;
 
-    // Get episode info
-    const { data: episode, error: epError } = await supabase
-      .from('episodes')
-      .select('id, title, description, genre, theme, status, created_at')
-      .eq('id', episodeId)
-      .single();
-
-    if (epError || !episode) {
-      throw new AppError(404, 'Episode not found');
+    if (!episode_id) {
+      return res.status(400).json({ success: false, error: 'episode_id is required' });
     }
 
-    // Get all scenes with full details
-    const { data: scenes, error: scError } = await supabase
+    const { data: scenes, error } = await supabase
       .from('scenes')
       .select('*')
-      .eq('episode_id', episodeId)
+      .eq('episode_id', episode_id)
       .order('scene_number', { ascending: true });
 
-    if (scError) throw scError;
+    if (error) throw error;
 
-    // Format as script
-    const script = {
-      episode: {
-        id: episode.id,
-        title: episode.title,
-        description: episode.description,
-        genre: episode.genre,
-        theme: episode.theme,
-        status: episode.status,
-        created_at: episode.created_at,
-      },
-      scenes: scenes?.map(scene => ({
-        id: scene.id,
-        scene_number: scene.scene_number,
-        title: scene.title,
-        description: scene.description,
-        visual_prompt: scene.visual_prompt,
-        narration: scene.narration,
-        dialogue: scene.dialogue,
-        duration_seconds: scene.duration_seconds,
-        status: scene.status,
-        image_url: scene.image_url,
-        voice_url: scene.voice_url,
-        animation_url: scene.animation_url,
-      })) || [],
-      total_scenes: scenes?.length || 0,
-      total_duration: scenes?.reduce((sum, s) => sum + (s.duration_seconds || 8), 0) || 0,
-    };
-
-    res.json({
-      success: true,
-      data: script,
-    });
-  } catch (err) {
-    next(err);
+    return res.json({ success: true, data: scenes || [] });
+  } catch (err: any) {
+    logger.error({ error: err.message }, 'Failed to fetch scenes');
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// GET /api/scenes/:episodeId/export - Export script as text
-scenesRouter.get('/:episodeId/export', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get single scene by ID
+ * GET /api/scenes/:id
+ */
+scenesRouter.get('/:id', async (req, res) => {
   try {
-    const { episodeId } = req.params;
-
-    const { data: episode } = await supabase
-      .from('episodes')
-      .select('title, description, genre')
-      .eq('id', episodeId)
-      .single();
-
-    const { data: scenes } = await supabase
-      .from('scenes')
-      .select('*')
-      .eq('episode_id', episodeId)
-      .order('scene_number');
-
-    if (!scenes || scenes.length === 0) {
-      throw new AppError(404, 'No scenes found for this episode');
-    }
-
-    // Format as screenplay text
-    let screenplay = `========================================\n`;
-    screenplay += `📽️ ${episode?.title || 'Untitled Episode'}\n`;
-    screenplay += `النوع: ${episode?.genre || '-'}\n`;
-    screenplay += `========================================\n\n`;
-    screenplay += `📋 ملخص:\n${episode?.description || '-'}\n\n`;
-    screenplay += `========================================\n\n`;
-
-    scenes.forEach((scene) => {
-      screenplay += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      screenplay += `🎬 مشهد ${scene.scene_number}: ${scene.title || 'بدون عنوان'}\n`;
-      screenplay += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-      
-      if (scene.description) {
-        screenplay += `📖 الوصف:\n${scene.description}\n\n`;
-      }
-      
-      if (scene.narration) {
-        screenplay += `🎙️ التعليق الصوتي:\n"${scene.narration}"\n\n`;
-      }
-      
-      if (scene.dialogue) {
-        screenplay += `💬 الحوار:\n"${scene.dialogue}"\n\n`;
-      }
-      
-      screenplay += `⏱️ المدة: ${scene.duration_seconds || 8} ثانية\n\n`;
-    });
-
-    screenplay += `========================================\n`;
-    screenplay += `✨ نهاية السيناريو\n`;
-    screenplay += `========================================\n`;
-
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(screenplay);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// PATCH /api/scenes/:sceneId - Update scene (script editing)
-scenesRouter.patch('/:sceneId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { sceneId } = req.params;
-    const { title, description, narration, dialogue, visual_prompt } = req.body;
-
-    const updateData: Record<string, string | undefined> = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (narration !== undefined) updateData.narration = narration;
-    if (dialogue !== undefined) updateData.dialogue = dialogue;
-    if (visual_prompt !== undefined) updateData.visual_prompt = visual_prompt;
+    const { id } = req.params;
 
     const { data: scene, error } = await supabase
       .from('scenes')
-      .update(updateData)
-      .eq('id', sceneId)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !scene) {
+      return res.status(404).json({ success: false, error: 'Scene not found' });
+    }
+
+    return res.json({ success: true, data: scene });
+  } catch (err: any) {
+    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to fetch scene');
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Update scene (prompt, dialogue, narration, duration)
+ * PATCH /api/scenes/:id
+ */
+scenesRouter.patch('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { visual_prompt, dialogue, narration, title, description, duration_seconds } = req.body;
+
+    const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (visual_prompt !== undefined) update.visual_prompt = visual_prompt;
+    if (dialogue !== undefined) update.dialogue = dialogue;
+    if (narration !== undefined) update.narration = narration;
+    if (title !== undefined) update.title = title;
+    if (description !== undefined) update.description = description;
+    if (duration_seconds !== undefined) update.duration_seconds = duration_seconds;
+
+    const { data: scene, error } = await supabase
+      .from('scenes')
+      .update(update)
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
-    res.json({
-      success: true,
-      data: scene,
-      message: 'Scene updated successfully',
-    });
-  } catch (err) {
-    next(err);
+    logger.info({ scene_id: id }, 'Scene updated');
+
+    return res.json({ success: true, data: scene });
+  } catch (err: any) {
+    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to update scene');
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// POST /api/scenes/:sceneId/regenerate - Regenerate scene image/voice
-scenesRouter.post('/:sceneId/regenerate', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Regenerate image for a scene
+ * POST /api/scenes/:id/regenerate-image
+ */
+scenesRouter.post('/:id/regenerate-image', async (req, res) => {
   try {
-    const { sceneId } = req.params;
-    const { type } = req.body; // 'image' or 'voice'
+    const { id } = req.params;
+    const { visual_prompt } = req.body;
 
-    const { data: scene, error } = await supabase
+    const { data: scene, error: fetchError } = await supabase
       .from('scenes')
-      .select('*')
-      .eq('id', sceneId)
+      .select('id, episode_id, scene_number, visual_prompt')
+      .eq('id', id)
       .single();
 
-    if (error || !scene) {
-      throw new AppError(404, 'Scene not found');
+    if (fetchError || !scene) {
+      return res.status(404).json({ success: false, error: 'Scene not found' });
     }
 
-    // Import queue service dynamically
-    const { queues, defaultJobOptions } = await import('../services/queue.service');
+    const prompt = visual_prompt || scene.visual_prompt;
 
-    let job;
-    if (type === 'image') {
-      job = await queues.image.add(
-        'regenerate-image',
-        {
-          episode_id: scene.episode_id,
-          scene_id: sceneId,
-          scene_number: scene.scene_number,
-          visual_prompt: scene.visual_prompt,
-        },
-        defaultJobOptions
-      );
-    } else if (type === 'voice') {
-      const text = scene.narration || scene.dialogue;
-      if (!text) {
-        throw new AppError(400, 'Scene has no narration or dialogue');
-      }
-      job = await queues.voice.add(
-        'regenerate-voice',
-        {
-          episode_id: scene.episode_id,
-          scene_id: sceneId,
-          text,
-        },
-        defaultJobOptions
-      );
-    } else {
-      throw new AppError(400, 'Invalid regenerate type. Use "image" or "voice"');
+    // Update prompt if changed
+    if (visual_prompt && visual_prompt !== scene.visual_prompt) {
+      await supabase
+        .from('scenes')
+        .update({ visual_prompt, status: 'pending', updated_at: new Date().toISOString() })
+        .eq('id', id);
     }
 
-    res.json({
-      success: true,
-      message: `${type} regeneration queued`,
-      job_id: job.id,
+    // Generate new image
+    const result = await imageGenerationService.generate({
+      episode_id: scene.episode_id,
+      scene_id: id,
+      scene_number: scene.scene_number,
+      visual_prompt: prompt,
     });
-  } catch (err) {
-    next(err);
+
+    // Save new image URL
+    await supabase
+      .from('scenes')
+      .update({ image_url: result.image_url, status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    await supabase.from('assets').insert({
+      episode_id: scene.episode_id,
+      scene_id: id,
+      asset_type: 'image',
+      file_url: result.image_url,
+      file_key: result.file_key,
+      mime_type: 'image/jpeg',
+    });
+
+    logger.info({ scene_id: id, image_url: result.image_url }, 'Scene image regenerated');
+
+    return res.json({ success: true, data: { image_url: result.image_url, file_key: result.file_key } });
+  } catch (err: any) {
+    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to regenerate scene image');
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// POST /api/scenes/:sceneId/upload-image
-// Body: { image_base64: string, mime_type: string }
-scenesRouter.post('/:sceneId/upload-image', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Regenerate voice for a scene
+ * POST /api/scenes/:id/regenerate-voice
+ */
+scenesRouter.post('/:id/regenerate-voice', async (req, res) => {
   try {
-    const { sceneId } = req.params;
-    const { image_base64, mime_type = 'image/jpeg' } = req.body;
+    const { id } = req.params;
+    const { text, voice_id } = req.body;
 
-    if (!image_base64) {
-      throw new AppError(400, 'image_base64 is required');
-    }
-
-    // Get scene to find episode_id
-    const { data: scene, error: sceneErr } = await supabase
+    const { data: scene, error: fetchError } = await supabase
       .from('scenes')
-      .select('episode_id, scene_number')
-      .eq('id', sceneId)
+      .select('id, episode_id, scene_number, dialogue, narration')
+      .eq('id', id)
       .single();
 
-    if (sceneErr || !scene) throw new AppError(404, 'Scene not found');
+    if (fetchError || !scene) {
+      return res.status(404).json({ success: false, error: 'Scene not found' });
+    }
 
-    // Upload to Supabase Storage
-    const buffer = Buffer.from(image_base64, 'base64');
-    const ext = mime_type.split('/')[1] || 'jpg';
-    const filePath = `episodes/${scene.episode_id}/scenes/scene_${scene.scene_number}_custom.${ext}`;
+    const voiceText = text || scene.dialogue || scene.narration;
+    if (!voiceText?.trim()) {
+      return res.status(400).json({ success: false, error: 'No text available for voice generation' });
+    }
 
-    const { error: uploadErr } = await supabase.storage
-      .from(process.env.STORAGE_BUCKET || 'ai-animation-factory')
-      .upload(filePath, buffer, { contentType: mime_type, upsert: true });
+    const { voiceGenerationService } = await import('../services/voice-generation.service');
+    const result = await voiceGenerationService.generate({
+      episode_id: scene.episode_id,
+      scene_id: id,
+      text: voiceText,
+      voice_id,
+    });
 
-    if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`);
+    await supabase
+      .from('scenes')
+      .update({ voice_url: result.voice_url, updated_at: new Date().toISOString() })
+      .eq('id', id);
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(process.env.STORAGE_BUCKET || 'ai-animation-factory')
-      .getPublicUrl(filePath);
+    logger.info({ scene_id: id }, 'Scene voice regenerated');
 
-    // Update scene image_url
-    await supabase.from('scenes').update({ image_url: publicUrl }).eq('id', sceneId);
-
-    return res.json({ success: true, image_url: publicUrl });
-  } catch (err) {
-    next(err);
+    return res.json({ success: true, data: { voice_url: result.voice_url, duration_seconds: result.duration_seconds } });
+  } catch (err: any) {
+    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to regenerate voice');
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
+export { scenesRouter };
 export default scenesRouter;

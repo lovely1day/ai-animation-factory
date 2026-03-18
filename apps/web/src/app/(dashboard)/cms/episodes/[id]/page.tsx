@@ -8,7 +8,7 @@ import {
   CheckCircle, Clock, Zap, Eye, Video
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Scene {
   id: string;
@@ -65,7 +65,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function EpisodeStudioPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
   const [episode, setEpisode] = useState<Episode | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);

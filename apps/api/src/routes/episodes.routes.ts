@@ -1,88 +1,151 @@
-import { Router, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { AuthRequest } from '../middleware/auth';
-import { AppError } from '../middleware/error-handler';
-import { queueService } from '../services/queue.service';
 import { logger } from '../utils/logger';
+import { approvalWorkflowService } from '../services/approval-workflow.service';
+import { comfyUIGenerationService } from '../services/comfyui-generation.service';
+import { PipelineService } from '../services/pipeline.service';
+import { WorkflowStep, WORKFLOW_STEP_DETAILS, calculateWorkflowProgress, getNextWorkflowStep } from '@ai-animation-factory/shared';
 
-export const episodesRouter = Router();
+const router: Router = Router();
 
-const listQuerySchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
-  status: z.string().optional(),
-  genre: z.string().optional(),
-  target_audience: z.string().optional(),
-  search: z.string().optional(),
-  sort: z.string().default('updated_at'),
-  order: z.enum(['asc', 'desc']).default('desc'),
-});
-
-// GET /api/episodes - list episodes (public)
-episodesRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get all episodes
+ * GET /api/episodes
+ */
+router.get('/', async (req, res) => {
   try {
-    const query = listQuerySchema.parse(req.query);
-    const { page, limit, status, genre, target_audience, search, sort, order } = query;
-    const offset = (page - 1) * limit;
+    const { 
+      project_id,
+      status, 
+      workflow_step,
+      workflow_status,
+      search, 
+      page = '1', 
+      limit = '20',
+      sort_by = 'updatedAt',
+      sort_order = 'desc'
+    } = req.query;
 
-    let dbQuery = supabase
+    let query = supabase
       .from('episodes')
-      .select('*', { count: 'exact' })
-      .range(offset, offset + limit - 1)
-      .order(sort, { ascending: order === 'asc' });
+      .select('*, projects(title)', { count: 'exact' });
 
-    // Apply filters — status can be comma-separated (e.g. "published,completed")
+    // Filters
+    if (project_id) {
+      query = query.eq('project_id', project_id);
+    }
     if (status) {
-      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
-      dbQuery = statuses.length === 1
-        ? dbQuery.eq('status', statuses[0])
-        : dbQuery.in('status', statuses);
-    } else {
-      // Return all statuses by default (no filter)
+      query = query.eq('status', status);
+    }
+    if (workflow_step) {
+      query = query.eq('workflow_step', workflow_step);
+    }
+    if (workflow_status) {
+      query = query.eq('workflow_status', workflow_status);
+    }
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    if (genre) dbQuery = dbQuery.eq('genre', genre);
-    if (target_audience) dbQuery = dbQuery.eq('target_audience', target_audience);
-    if (search) dbQuery = dbQuery.ilike('title', `%${search}%`);
+    // Sort
+    query = query.order(sort_by as string, { ascending: sort_order === 'asc' });
 
-    const { data: episodes, error, count } = await dbQuery;
-    if (error) throw error;
+    // Pagination
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
 
-    const total = count || 0;
-    const totalPages = Math.ceil(total / limit);
+    query = query.range(from, to);
+
+    const { data: episodes, error, count } = await query;
+
+    if (error) {
+      throw error;
+    }
 
     res.json({
       success: true,
-      data: episodes || [],
+      data: episodes,
       pagination: {
-        page,
-        limit,
-        total,
-        total_pages: totalPages,
-        has_next: page < totalPages,
-        has_prev: page > 1,
-      },
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        total_pages: Math.ceil((count || 0) / limitNum)
+      }
     });
-  } catch (err) {
-    next(err);
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to fetch episodes');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// GET /api/episodes/:id - get single episode with scenes
-episodesRouter.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get episodes waiting for approval
+ * GET /api/episodes/waiting-approval
+ */
+router.get('/waiting-approval', async (req, res) => {
+  try {
+    const { page = '1', limit = '20' } = req.query;
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
+
+    const { data: episodes, error, count } = await supabase
+      .from('episodes')
+      .select('*, projects(title)', { count: 'exact' })
+      .eq('workflow_status', 'waiting_approval')
+      .order('updatedAt', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      data: episodes,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        total_pages: Math.ceil((count || 0) / limitNum)
+      }
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to fetch waiting approval episodes');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get episode by ID
+ * GET /api/episodes/:id
+ */
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get episode
+    // Get episode with project info
     const { data: episode, error: episodeError } = await supabase
       .from('episodes')
-      .select('*')
+      .select('*, projects(*)')
       .eq('id', id)
       .single();
 
     if (episodeError || !episode) {
-      throw new AppError(404, 'Episode not found');
+      return res.status(404).json({
+        success: false,
+        error: 'Episode not found'
+      });
     }
 
     // Get scenes
@@ -92,211 +155,437 @@ episodesRouter.get('/:id', async (req: AuthRequest, res: Response, next: NextFun
       .eq('episode_id', id)
       .order('scene_number', { ascending: true });
 
-    if (scenesError) throw scenesError;
+    if (scenesError) {
+      throw scenesError;
+    }
+
+    // Get approval logs
+    const { data: approvalLogs, error: logsError } = await supabase
+      .from('approval_logs')
+      .select('*')
+      .eq('episode_id', id)
+      .order('created_at', { ascending: false });
+
+    if (logsError) {
+      throw logsError;
+    }
 
     // Get generation jobs
     const { data: jobs, error: jobsError } = await supabase
       .from('generation_jobs')
       .select('*')
       .eq('episode_id', id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    if (jobsError) throw jobsError;
-
-    // Get assets
-    const { data: assets, error: assetsError } = await supabase
-      .from('assets')
-      .select('*')
-      .eq('episode_id', id);
-
-    if (assetsError) throw assetsError;
+    if (jobsError) {
+      throw jobsError;
+    }
 
     res.json({
       success: true,
       data: {
-        episode,
+        ...episode,
         scenes: scenes || [],
-        jobs: jobs || [],
-        assets: assets || [],
-      },
+        approval_logs: approvalLogs || [],
+        recent_jobs: jobs || []
+      }
     });
-  } catch (err) {
-    next(err);
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to fetch episode');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// POST /api/episodes - create (public for testing)
-episodesRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Create episode (without project)
+ * POST /api/episodes
+ */
+router.post('/', async (req, res) => {
   try {
-    const schema = z.object({
-      title: z.string().min(1).max(200).optional().default('Untitled Episode'),
-      description: z.string().optional(),
-      genre: z.string(),
-      target_audience: z.string().optional(),
-      targetAudience: z.string().optional(),
-      theme: z.string().optional(),
-      tags: z.array(z.string()).default([]),
-    });
+    const { 
+      title, 
+      description, 
+      idea,
+      project_id,
+      genre, 
+      target_audience,
+      episode_number 
+    } = req.body;
 
-    const rawBody = schema.parse(req.body);
-    
-    // Normalize field names
-    const body = {
-      ...rawBody,
-      target_audience: rawBody.target_audience || rawBody.targetAudience || 'general'
+    if (!title?.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Title is required'
+      });
+    }
+
+    // If project_id provided, use project settings
+    let projectSettings = {
+      approval_steps: ['script', 'images'],
+      default_scene_count: 8,
+      default_video_quality: 'hd'
     };
 
-    logger.info({ genre: body.genre, audience: body.target_audience }, 'Creating new episode');
+    if (project_id) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('workflow_settings, genre, target_audience')
+        .eq('id', project_id)
+        .single();
 
-    // Create episode
-    const { data: episode, error: episodeError } = await supabase
+      if (project) {
+        projectSettings = project.workflow_settings;
+      }
+    }
+
+    // Get next episode number if not provided
+    let epNumber = episode_number;
+    if (project_id && !epNumber) {
+      const { data: lastEpisode } = await supabase
+        .from('episodes')
+        .select('episode_number')
+        .eq('project_id', project_id)
+        .order('episode_number', { ascending: false })
+        .limit(1)
+        .single();
+      
+      epNumber = (lastEpisode?.episode_number || 0) + 1;
+    }
+
+    const { data: episode, error } = await supabase
       .from('episodes')
       .insert({
-        title: body.title,
-        description: body.description,
-        genre: body.genre,
-        target_audience: body.target_audience,
-        theme: body.theme,
-        tags: body.tags,
-        status: 'pending'
+        project_id,
+        title,
+        description,
+        idea,
+        genre,
+        target_audience,
+        episode_number: epNumber,
+        season_number: 1,
+        status: 'pending',
+        workflow_step: 'idea',
+        workflow_status: 'pending',
+        workflow_progress: 0,
+        approval_steps: projectSettings.approval_steps,
+        approvals_log: [],
+        metadata: {
+          generation_settings: {
+            scene_count: projectSettings.default_scene_count,
+            image_width: 1024,
+            image_height: 1024,
+            video_quality: projectSettings.default_video_quality
+          }
+        },
+        view_count: 0,
+        like_count: 0,
+        share_count: 0
       })
       .select()
       .single();
 
-    if (episodeError || !episode) {
-      logger.error({ error: episodeError }, 'Failed to create episode');
-      throw episodeError || new Error('Failed to create episode');
+    if (error) {
+      throw error;
     }
 
-    logger.info({ episode_id: episode.id }, 'Episode created, dispatching to queue');
+    // Update project stats if project_id exists
+    if (project_id) {
+      await supabase.rpc('increment_project_episode_count', { project_id });
+    }
 
-    // Dispatch to generation queue
-    const jobId = await queueService.dispatchEpisodeGeneration({
-      episode_id: episode.id,
-      genre: body.genre,
-      target_audience: body.target_audience,
-      theme: body.theme
-    });
+    logger.info({ episode_id: episode.id }, 'Episode created');
 
-    res.status(201).json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: episode,
-      job_id: jobId
+      message: 'Episode created successfully'
     });
-  } catch (err) {
-    logger.error({ error: err }, 'Error creating episode');
-    next(err);
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to create episode');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// PATCH /api/episodes/:id - update episode
-episodesRouter.patch('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Update episode
+ * PATCH /api/episodes/:id
+ */
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const schema = z.object({
-      title: z.string().min(1).max(200).optional(),
-      description: z.string().optional(),
-      status: z.string().optional(),
-      scenes: z.array(z.object({
-        id: z.string(),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        narration: z.string().optional(),
-        dialogue: z.string().optional(),
-      })).optional(),
+    const updateData = req.body;
+
+    // Remove fields that shouldn't be updated directly
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.project_id;
+
+    const { data: episode, error } = await supabase
+      .from('episodes')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    logger.info({ episode_id: id }, 'Episode updated');
+
+    res.json({
+      success: true,
+      data: episode,
+      message: 'Episode updated successfully'
     });
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to update episode');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
-    const body = schema.parse(req.body);
+/**
+ * Delete episode
+ * DELETE /api/episodes/:id
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
 
-    // Update episode basic info
-    const updateData: Record<string, string | undefined> = {};
-    if (body.title) updateData.title = body.title;
-    if (body.description) updateData.description = body.description;
-    if (body.status) updateData.status = body.status;
-
-    if (Object.keys(updateData).length > 0) {
-      const { error } = await supabase
-        .from('episodes')
-        .update(updateData)
-        .eq('id', id);
-      
-      if (error) throw error;
-    }
-
-    // Update scenes if provided
-    if (body.scenes && body.scenes.length > 0) {
-      for (const scene of body.scenes) {
-        const sceneUpdate: Record<string, string | undefined> = {};
-        if (scene.title) sceneUpdate.title = scene.title;
-        if (scene.description) sceneUpdate.description = scene.description;
-        if (scene.narration) sceneUpdate.narration = scene.narration;
-        if (scene.dialogue) sceneUpdate.dialogue = scene.dialogue;
-
-        if (Object.keys(sceneUpdate).length > 0) {
-          const { error } = await supabase
-            .from('scenes')
-            .update(sceneUpdate)
-            .eq('id', scene.id)
-            .eq('episode_id', id);
-          
-          if (error) throw error;
-        }
-      }
-    }
-
-    // Get updated episode with scenes
+    // Get project_id before deletion for stats update
     const { data: episode } = await supabase
       .from('episodes')
-      .select('*')
+      .select('project_id')
       .eq('id', id)
       .single();
 
-    const { data: scenes } = await supabase
-      .from('scenes')
-      .select('*')
-      .eq('episode_id', id)
-      .order('scene_number');
-
-    res.json({ 
-      success: true, 
-      data: { episode, scenes }
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// DELETE /api/episodes/cleanup - delete all stuck pending episodes with no real data
-episodesRouter.delete('/cleanup', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    // Delete episodes that are still 'pending' with title 'Generating...' and no video
-    const { data: deleted, error } = await supabase
+    const { error } = await supabase
       .from('episodes')
       .delete()
-      .eq('status', 'pending')
-      .eq('title', 'Generating...')
-      .is('video_url', null)
-      .select('id');
+      .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    logger.info({ count: deleted?.length }, 'Cleaned up stuck pending episodes');
-    res.json({ success: true, deleted: deleted?.length || 0 });
-  } catch (err) {
-    next(err);
+    // Update project stats
+    if (episode?.project_id) {
+      await supabase.rpc('decrement_project_episode_count', { project_id: episode.project_id });
+    }
+
+    logger.info({ episode_id: id }, 'Episode deleted');
+
+    res.json({
+      success: true,
+      message: 'Episode deleted successfully'
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to delete episode');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// DELETE /api/episodes/:id - delete specific episode
-episodesRouter.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get episode workflow state
+ * GET /api/episodes/:id/workflow
+ */
+router.get('/:id/workflow', async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('episodes').delete().eq('id', id);
-    if (error) throw error;
-    res.json({ success: true, message: 'Episode deleted' });
-  } catch (err) {
-    next(err);
+
+    const { data: episode, error } = await supabase
+      .from('episodes')
+      .select('workflow_step, workflow_status, workflow_progress, approval_steps, current_approval_step, script_data, images_data, voice_data, music_data')
+      .eq('id', id)
+      .single();
+
+    if (error || !episode) {
+      return res.status(404).json({
+        success: false,
+        error: 'Episode not found'
+      });
+    }
+
+    // Build workflow steps with status
+    const steps = ['idea', 'script', 'scenes', 'images', 'voice', 'music', 'subtitles', 'animation', 'assembly', 'final'];
+    const currentStepIndex = steps.indexOf(episode.workflow_step);
+
+    const workflowSteps = steps.map((step, index) => {
+      const stepDetails = WORKFLOW_STEP_DETAILS[step as WorkflowStep];
+      let status: 'pending' | 'processing' | 'completed' | 'waiting_approval' = 'pending';
+
+      if (index < currentStepIndex) {
+        status = 'completed';
+      } else if (index === currentStepIndex) {
+        status = episode.workflow_status === 'waiting_approval' ? 'waiting_approval' : 
+                 episode.workflow_status === 'processing' ? 'processing' : 'pending';
+      }
+
+      return {
+        step,
+        name: stepDetails?.name || step,
+        name_ar: stepDetails?.name_ar || step,
+        status,
+        requires_approval: episode.approval_steps?.includes(step) || false,
+        estimated_duration: stepDetails?.estimated_duration_seconds || 60
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        current_step: episode.workflow_step,
+        current_status: episode.workflow_status,
+        overall_progress: episode.workflow_progress,
+        steps: workflowSteps,
+        can_approve_current: episode.workflow_status === 'waiting_approval',
+        current_approval_step: episode.current_approval_step,
+        data: {
+          script_ready: !!episode.script_data,
+          images_ready: !!episode.images_data,
+          voice_ready: !!episode.voice_data,
+          music_ready: !!episode.music_data
+        }
+      }
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to fetch workflow state');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-export default episodesRouter;
+/**
+ * Update episode workflow step
+ * POST /api/episodes/:id/workflow/advance
+ */
+router.post('/:id/workflow/advance', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get current episode
+    const { data: episode, error: fetchError } = await supabase
+      .from('episodes')
+      .select('workflow_step, workflow_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !episode) {
+      return res.status(404).json({
+        success: false,
+        error: 'Episode not found'
+      });
+    }
+
+    if (episode.workflow_status !== 'completed' && episode.workflow_status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        error: 'Current step must be completed or approved before advancing'
+      });
+    }
+
+    const nextStep = getNextWorkflowStep(episode.workflow_step);
+    if (!nextStep) {
+      // Episode is complete
+      const { data: updated } = await supabase
+        .from('episodes')
+        .update({
+          workflow_status: 'completed',
+          status: 'completed',
+          workflow_progress: 100,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      return res.json({
+        success: true,
+        data: updated,
+        message: 'Episode workflow completed'
+      });
+    }
+
+    const newProgress = calculateWorkflowProgress(nextStep);
+
+    const { data: updated, error } = await supabase
+      .from('episodes')
+      .update({
+        workflow_step: nextStep,
+        workflow_status: 'pending',
+        workflow_progress: newProgress,
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    logger.info({ episode_id: id, from: episode.workflow_step, to: nextStep }, 'Workflow advanced');
+
+    res.json({
+      success: true,
+      data: updated,
+      message: `Advanced to ${nextStep}`
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to advance workflow');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Start pipeline for an existing episode
+ * POST /api/episodes/:id/start
+ */
+router.post('/:id/start', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: episode, error } = await supabase
+      .from('episodes')
+      .select('id, title, description, genre, target_audience, approval_steps, scene_count')
+      .eq('id', id)
+      .single();
+
+    if (error || !episode) {
+      return res.status(404).json({ success: false, error: 'Episode not found' });
+    }
+
+    await PipelineService.run(episode);
+
+    logger.info({ episode_id: id }, 'Pipeline started for episode');
+
+    return res.json({
+      success: true,
+      message: 'Pipeline started',
+      episode_id: id,
+    });
+  } catch (err: any) {
+    logger.error({ error: err.message, episode_id: req.params.id }, 'Failed to start pipeline');
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+export default router;

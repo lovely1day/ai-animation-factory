@@ -1,0 +1,64 @@
+{
+  "name": "Default Image Generation Settings",
+  "version": "1.0.0",
+  "description": "Default settings for ComfyUI image generation",
+  
+  "generation": {
+    "steps": 30,
+    "cfg": 5.5,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+    "denoise": 1.0
+  },
+  
+  "resolution": {
+    "portrait": {
+      "width": 832,
+      "height": 1216,
+      "description": "Portrait orientation (2:3)"
+    },
+    "landscape": {
+      "width": 1216,
+      "height": 832,
+      "description": "Landscape orientation (3:2)"
+    },
+    "square": {
+      "width": 1024,
+      "height": 1024,
+      "description": "Square format (1:1)"
+    },
+    "widescreen": {
+      "width": 1344,
+      "height": 768,
+      "description": "Widescreen (16:9)"
+    }
+  },
+  
+  "ipadapter": {
+    "weight": 0.8,
+    "weight_type": "original",
+    "noise": 0.0,
+    "start_at": 0.0,
+    "end_at": 1.0,
+    "unfold_batch": false
+  },
+  
+  "models": {
+    "checkpoint": "model.safetensors",
+    "ipadapter": "ip-adapter_sd15.safetensors",
+    "clip_vision": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"
+  },
+  
+  "paths": {
+    "comfyui_base": "http://localhost:8188",
+    "output_prefix": "ComfyUI",
+    "input_characters": "ComfyUI/input/characters",
+    "input_scenes": "ComfyUI/input/scenes",
+    "output_sequences": "ComfyUI/output/sequences"
+  },
+  
+  "retry": {
+    "max_attempts": 3,
+    "delay_ms": 1000
+  }
+}

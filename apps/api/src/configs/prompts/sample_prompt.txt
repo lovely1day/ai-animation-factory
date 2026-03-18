@@ -1,0 +1,24 @@
+# Sample Prompts for AI Image Generation
+# =======================================
+# Use these as templates for character and scene generation
+
+## Character Portrait
+ cinematic portrait of a character, ultra realistic, soft lighting, 8k resolution, highly detailed, professional photography
+
+## Scene Background
+ wide establishing shot, cinematic environment, dramatic lighting, detailed background, atmospheric perspective, golden hour lighting
+
+## Character with Action
+ dynamic action pose, motion blur, intense expression, cinematic composition, dramatic shadows, professional color grading
+
+## Consistent Character (for IPAdapter)
+ same character, consistent face features, matching clothing, coherent style, maintained proportions, recognizable likeness
+
+## Negative Prompts (what to avoid)
+ blurry, low quality, distorted, ugly, deformed, bad anatomy, extra limbs, watermark, signature, cropped, worst quality
+
+## Style Modifiers
+ anime style, photorealistic, oil painting, watercolor, digital art, concept art, storybook illustration, cinematic, noir
+
+## Lighting Options
+ soft lighting, dramatic lighting, rim lighting, studio lighting, natural lighting, golden hour, blue hour, neon lighting, volumetric lighting

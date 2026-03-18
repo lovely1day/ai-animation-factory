@@ -1,6 +1,6 @@
-import { geminiJSON } from '../config/gemini';
 import { IdeaGenerationInput, IdeaGenerationOutput } from '@ai-animation-factory/shared';
 import { logger } from '../utils/logger';
+import { hybridGenerateIdea } from './hybrid-ai.service';
 
 const GENRES_PROMPTS: Record<string, string> = {
   adventure: 'exciting quest, exploration, discovery, brave heroes',
@@ -24,11 +24,11 @@ const AUDIENCE_PROMPTS: Record<string, string> = {
 
 export class IdeaGeneratorService {
   async generate(input: IdeaGenerationInput): Promise<IdeaGenerationOutput> {
-    logger.info({ genre: input.genre, audience: input.target_audience }, 'Generating episode idea');
+    logger.info({ genre: input.genre, audience: input.target_audience }, 'Generating episode idea (hybrid)');
 
-    const genreHint = GENRES_PROMPTS[input.genre] || input.genre;
+    const genreHint    = GENRES_PROMPTS[input.genre] || input.genre;
     const audienceHint = AUDIENCE_PROMPTS[input.target_audience] || input.target_audience;
-    const themeHint = input.theme ? `Theme: ${input.theme}.` : '';
+    const themeHint    = input.theme ? `Theme: ${input.theme}.` : '';
 
     const prompt = `You are a creative director for an animated series. Generate an original episode concept.
 
@@ -36,21 +36,32 @@ Genre: ${input.genre} (${genreHint})
 Target Audience: ${input.target_audience} (${audienceHint})
 ${themeHint}
 
-Create a compelling, unique episode idea. Return a JSON object with exactly this structure:
+Create a compelling, unique episode idea. Return ONLY a JSON object with exactly this structure:
 {
-  "title": "Episode title (5-10 words, catchy)",
-  "description": "2-3 sentence synopsis",
+  "title": "Episode title (5-10 words, catchy and memorable)",
+  "description": "2-3 sentence synopsis that hooks the viewer",
   "genre": "${input.genre}",
   "target_audience": "${input.target_audience}",
-  "theme": "Core theme/moral of the episode",
+  "theme": "Core theme or moral lesson of the episode",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
 }
 
-Be creative, original, and ensure the content is appropriate for the target audience.`;
+Be creative, original, avoid clichés. Return valid JSON only.`;
 
-    const idea = await geminiJSON<IdeaGenerationOutput>(prompt);
-    logger.info({ title: idea.title }, 'Episode idea generated');
-    return idea;
+    const context = `Genre: ${input.genre}, Audience: ${input.target_audience}`;
+
+    const { result, engine, reviewed } = await hybridGenerateIdea<IdeaGenerationOutput>(
+      prompt,
+      context,
+      {
+        mode: 'hybrid',      // Ollama generates → cloud reviews
+        ollamaModel: 'mistral', // mistral is better at structured JSON
+        skipReview: false,   // always review for idea quality
+      }
+    );
+
+    logger.info({ title: result.title, engine, reviewed }, 'Episode idea generated');
+    return result;
   }
 }
 

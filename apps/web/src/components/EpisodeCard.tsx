@@ -74,21 +74,21 @@ export function EpisodeCard({ episode, showStatus = false, href }: EpisodeCardPr
 
           <div className="flex items-center justify-between">
             <Badge
-              className={`text-xs text-white ${genreColors[episode.genre] || 'bg-gray-600'}`}
+              className={`text-xs text-white ${genreColors[episode.genre || 'general'] || 'bg-gray-600'}`}
             >
-              {episode.genre}
+              {episode.genre || 'general'}
             </Badge>
-            <span className="text-xs text-muted-foreground">{timeAgo(episode.created_at)}</span>
+            <span className="text-xs text-muted-foreground">{timeAgo(episode.createdAt)}</span>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Eye className="w-3 h-3" />
-              {formatNumber(episode.view_count)}
+              {formatNumber(episode.view_count || 0)}
             </span>
             <span className="flex items-center gap-1">
               <Heart className="w-3 h-3" />
-              {formatNumber(episode.like_count)}
+              {formatNumber(episode.like_count || 0)}
             </span>
           </div>
         </div>

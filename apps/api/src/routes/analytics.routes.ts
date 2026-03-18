@@ -1,131 +1,240 @@
-import { Router, Response, NextFunction } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { Router } from 'express';
 import { supabase } from '../config/supabase';
+import { logger } from '../utils/logger';
 
-export const analyticsRouter = Router();
+const router: Router = Router();
 
-analyticsRouter.use(authenticate);
-
-// GET /api/analytics/summary
-analyticsRouter.get('/summary', async (_req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get analytics summary
+ * GET /api/analytics/summary
+ */
+router.get('/summary', async (_req, res) => {
   try {
-    const [episodeStats, viewStats, topEpisodes] = await Promise.all([
-      supabase.from('episodes').select('status', { count: 'exact' }),
-      supabase
-        .from('analytics')
-        .select('event_type, episode_id')
-        .in('event_type', ['view', 'like']),
-      supabase
-        .from('episodes')
-        .select('id, title, view_count')
-        .eq('status', 'published')
-        .order('view_count', { ascending: false })
-        .limit(10),
-    ]);
+    // Get total episodes
+    const { count: totalEpisodes, error: episodesError } = await supabase
+      .from('episodes')
+      .select('*', { count: 'exact', head: true });
 
-    const statusCounts = (episodeStats.data || []).reduce((acc, row) => {
-      acc[row.status] = (acc[row.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    if (episodesError) {
+      logger.error({ error: episodesError.message }, 'Analytics: failed to get total episodes');
+    }
 
-    const totalViews = (viewStats.data || []).filter((r) => r.event_type === 'view').length;
-    const totalLikes = (viewStats.data || []).filter((r) => r.event_type === 'like').length;
+    // Get published episodes
+    const { count: publishedEpisodes, error: publishedError } = await supabase
+      .from('episodes')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'published');
+
+    if (publishedError) {
+      logger.error({ error: publishedError.message }, 'Analytics: failed to get published episodes');
+    }
+
+    // Get generating episodes
+    const { count: generatingEpisodes, error: generatingError } = await supabase
+      .from('episodes')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['generating', 'processing']);
+
+    if (generatingError) {
+      logger.error({ error: generatingError.message }, 'Analytics: failed to get generating episodes');
+    }
+
+    // Get total views and likes
+    const { data: stats, error: statsError } = await supabase
+      .from('episodes')
+      .select('view_count, like_count');
+
+    if (statsError) {
+      logger.error({ error: statsError.message }, 'Analytics: failed to get stats');
+    }
+
+    const totalViews = stats?.reduce((sum, ep) => sum + (ep.view_count || 0), 0) || 0;
+    const totalLikes = stats?.reduce((sum, ep) => sum + (ep.like_count || 0), 0) || 0;
+
+    // Get top episodes by views
+    const { data: topEpisodes, error: topError } = await supabase
+      .from('episodes')
+      .select('id, title, view_count')
+      .order('view_count', { ascending: false })
+      .limit(5);
+
+    if (topError) {
+      logger.error({ error: topError.message }, 'Analytics: failed to get top episodes');
+    }
 
     res.json({
       success: true,
       data: {
-        total_episodes: episodeStats.count || 0,
+        total_episodes: totalEpisodes || 0,
         total_views: totalViews,
         total_likes: totalLikes,
-        published_episodes: statusCounts['published'] || 0,
-        generating_episodes: statusCounts['generating'] || 0,
-        completed_episodes: statusCounts['completed'] || 0,
-        failed_episodes: statusCounts['failed'] || 0,
-        top_episodes: topEpisodes.data || [],
+        published_episodes: publishedEpisodes || 0,
+        generating_episodes: generatingEpisodes || 0,
+        top_episodes: topEpisodes || [],
       },
     });
-  } catch (err) {
-    next(err);
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Analytics: summary error');
+    res.json({
+      success: false,
+      error: error.message,
+      data: {
+        total_episodes: 0,
+        total_views: 0,
+        total_likes: 0,
+        published_episodes: 0,
+        generating_episodes: 0,
+        top_episodes: [],
+      },
+    });
   }
 });
 
-// GET /api/analytics/views-by-day
-analyticsRouter.get('/views-by-day', async (req: AuthRequest, res: Response, next: NextFunction) => {
+/**
+ * Get views by day
+ * GET /api/analytics/views-by-day?days=30
+ */
+router.get('/views-by-day', async (req, res) => {
   try {
-    const days = parseInt(String(req.query.days || 30), 10);
-    const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const days = parseInt(req.query.days as string) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-    const { data, error } = await supabase
-      .from('analytics')
+    // Get analytics events
+    const { data: events, error } = await supabase
+      .from('analytics_events')
       .select('created_at')
       .eq('event_type', 'view')
-      .gte('created_at', fromDate);
+      .gte('created_at', startDate.toISOString());
 
-    if (error) throw error;
+    if (error) {
+      logger.error({ error: error.message }, 'Analytics: views-by-day error');
+    }
 
-    const byDay = (data || []).reduce((acc, row) => {
-      const day = row.created_at.split('T')[0];
-      acc[day] = (acc[day] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    // Group by day
+    const viewsByDay: Record<string, number> = {};
+    
+    // Initialize all days with 0
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      viewsByDay[dateStr] = 0;
+    }
 
-    const result = Object.entries(byDay)
+    // Count events
+    (events || []).forEach((event: any) => {
+      const dateStr = event.created_at.split('T')[0];
+      if (viewsByDay[dateStr] !== undefined) {
+        viewsByDay[dateStr]++;
+      }
+    });
+
+    // Convert to array format
+    const result = Object.entries(viewsByDay)
       .map(([date, views]) => ({ date, views }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/analytics/views-by-genre
-analyticsRouter.get('/views-by-genre', async (_req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { data, error } = await supabase
-      .from('analytics')
-      .select('episodes(genre)')
-      .eq('event_type', 'view');
-
-    if (error) throw error;
-
-    const byGenre = (data || []).reduce((acc, row) => {
-      const episodes = row.episodes as { genre: string } | { genre: string }[] | null;
-      const genre = Array.isArray(episodes) 
-        ? episodes[0]?.genre 
-        : episodes?.genre || 'unknown';
-      acc[genre] = (acc[genre] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    res.json({ success: true, data: byGenre });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/analytics/track
-analyticsRouter.post('/track', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { episode_id, event_type, watch_duration_seconds } = req.body;
-
-    await supabase.from('analytics').insert({
-      episode_id,
-      event_type,
-      user_id: req.user?.id,
-      session_id: req.headers['x-session-id'] as string,
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent'],
-      watch_duration_seconds,
+    res.json({
+      success: true,
+      data: result,
     });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Analytics: views-by-day error');
+    res.json({
+      success: false,
+      error: error.message,
+      data: [],
+    });
+  }
+});
 
-    // Update like/view counts on episodes
-    if (event_type === 'like') {
-      await supabase.rpc('increment', { x: 1, row_id: episode_id, field_name: 'like_count' });
+/**
+ * Get views by genre
+ * GET /api/analytics/views-by-genre
+ */
+router.get('/views-by-genre', async (_req, res) => {
+  try {
+    const { data: episodes, error } = await supabase
+      .from('episodes')
+      .select('genre, view_count');
+
+    if (error) {
+      logger.error({ error: error.message }, 'Analytics: views-by-genre error');
     }
 
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
+    // Group by genre
+    const viewsByGenre: Record<string, number> = {};
+    
+    (episodes || []).forEach((ep: any) => {
+      const genre = ep.genre || 'unknown';
+      viewsByGenre[genre] = (viewsByGenre[genre] || 0) + (ep.view_count || 0);
+    });
+
+    res.json({
+      success: true,
+      data: viewsByGenre,
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Analytics: views-by-genre error');
+    res.json({
+      success: false,
+      error: error.message,
+      data: {},
+    });
   }
 });
+
+/**
+ * Track analytics event
+ * POST /api/analytics/track
+ */
+router.post('/track', async (req, res) => {
+  try {
+    const { episode_id, event_type, metadata = {} } = req.body;
+
+    const { data, error } = await supabase
+      .from('analytics_events')
+      .insert({
+        episode_id,
+        event_type,
+        metadata,
+        ip_address: req.ip,
+        user_agent: req.headers['user-agent'],
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error({ error: error.message }, 'Analytics: track error');
+      return res.json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    // Update episode view/like count
+    if (event_type === 'view') {
+      await supabase.rpc('increment_episode_views', { episode_id }).catch((err) => {
+        logger.error({ error: err.message }, 'Analytics: failed to increment views');
+      });
+    } else if (event_type === 'like') {
+      await supabase.rpc('increment_episode_likes', { episode_id }).catch((err) => {
+        logger.error({ error: err.message }, 'Analytics: failed to increment likes');
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Analytics: track error');
+    res.json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+export default router;

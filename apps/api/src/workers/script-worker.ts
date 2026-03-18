@@ -1,95 +1,89 @@
-import { Worker, Job } from 'bullmq';
-import { redisConnection } from '../config/redis';
-import { supabase } from '../config/supabase';
-import { JOB_QUEUE_NAMES } from '@ai-animation-factory/shared';
-import { scriptWriterService } from '../services/script-writer.service';
-import { logger } from '../utils/logger';
-import { emitEpisodeUpdate } from '../config/websocket';
+import { Worker, Queue } from "bullmq";
+import { WorkflowService } from "../services/workflow.service";
+import { scriptWriterService } from "../services/script-writer.service";
+import { redisConnection } from "../config/redis";
+import { logger } from "../utils/logger";
+import { supabase } from "../config/supabase";
+
+// Queues for next steps
+const imageQueue = new Queue("image", { connection: redisConnection });
+const voiceQueue = new Queue("voice", { connection: redisConnection });
 
 export function createScriptWorker() {
   return new Worker(
-    JOB_QUEUE_NAMES.SCRIPT,
-    async (job: Job) => {
-      const { episode_id, idea, scene_count } = job.data;
-      logger.info({ job_id: job.id, episode_id }, 'Processing script writing job');
+    "script",
+    async (job) => {
+      const episode = job.data;
+      logger.info({ episode_id: episode.id }, "Generating script for episode");
 
-      await job.updateProgress(10);
-
-      const script = await scriptWriterService.write({ episode_id, idea, scene_count });
-      await job.updateProgress(50);
-
-      // Save scenes to database
-      const sceneInserts = script.scenes.map((scene) => ({
-        episode_id,
-        scene_number: scene.scene_number,
-        title: scene.title,
-        description: scene.description,
-        visual_prompt: scene.visual_prompt,
-        dialogue: scene.dialogue,
-        narration: scene.narration,
-        duration_seconds: scene.duration_seconds,
-        status: 'pending',
-      }));
-
-      const { data: scenes, error: sceneError } = await supabase
-        .from('scenes')
-        .insert(sceneInserts)
-        .select();
-
-      if (sceneError || !scenes) throw new Error(`Failed to create scenes: ${sceneError?.message}`);
-
-      // Emit scenes created event
-      emitEpisodeUpdate(episode_id, {
-        type: 'scenes_created',
-        sceneCount: scenes.length,
-        scenes: scenes.map(s => ({
-          id: s.id,
-          scene_number: s.scene_number,
-          title: s.title,
-          status: s.status,
-        })),
+      // Generate actual script using AI
+      const script = await scriptWriterService.write({
+        episode_id: episode.id,
+        idea: {
+          title: episode.title,
+          description: episode.idea || episode.description,
+          genre: episode.genre,
+          target_audience: episode.target_audience,
+          theme: episode.theme || episode.genre,
+          tags: episode.tags || [],
+        },
+        scene_count: episode.scene_count || 8,
       });
 
-      await job.updateProgress(70);
+      // Save scenes to database with dialogue and narration
+      for (const scene of script.scenes) {
+        const { error } = await supabase.from("scenes").insert({
+          episode_id: episode.id,
+          scene_number: scene.scene_number,
+          title: scene.title,
+          description: scene.description,
+          visual_prompt: scene.visual_prompt,
+          dialogue: scene.dialogue,
+          narration: scene.narration,
+          duration_seconds: scene.duration_seconds || 8,
+          status: "pending",
+        });
 
-      // Update episode title/description from script
-      await supabase
-        .from('episodes')
-        .update({ title: script.title, description: script.description, status: 'awaiting_image_approval' })
-        .eq('id', episode_id);
+        if (error) {
+          logger.error({ error, episode_id: episode.id, scene_number: scene.scene_number }, "Failed to save scene");
+          throw error;
+        }
 
-      // Record job completion
-      await supabase.from('generation_jobs').insert({
-        episode_id,
-        job_type: 'script_writing',
-        status: 'completed',
-        bull_job_id: job.id,
-        progress: 100,
-        output_data: { scene_count: scenes.length },
-        completed_at: new Date().toISOString(),
-      });
+        // Dispatch image job WITH dialogue/narration for voice generation
+        await imageQueue.add("generate-image", {
+          episode_id: episode.id,
+          scene_number: scene.scene_number,
+          visual_prompt: scene.visual_prompt,
+          dialogue: scene.dialogue,
+          narration: scene.narration,
+          genre: episode.genre,
+          target_audience: episode.target_audience,
+        });
 
-      await job.updateProgress(90);
+        logger.info({ episode_id: episode.id, scene_number: scene.scene_number }, "Dispatched image job with voice data");
+      }
 
-      // Emit WebSocket event — waiting for user to approve image prompts
-      emitEpisodeUpdate(episode_id, {
-        type: 'awaiting_image_approval',
-        title: script.title,
-        sceneCount: scenes.length,
-        scenes: scenes.map(s => ({
-          id: s.id,
-          scene_number: s.scene_number,
-          title: s.title,
-          visual_prompt: s.visual_prompt,
-          description: s.description,
-        })),
-      });
+      // Update episode with script
+      await supabase.from("episodes").update({
+        script: JSON.stringify(script),
+        scene_count: script.scenes.length,
+      }).eq("id", episode.id);
 
-      await job.updateProgress(100);
-      logger.info({ episode_id, scenes: scenes.length }, 'Script writing completed — awaiting image approval');
+      const approvalSteps = episode.approval_steps || [];
 
-      return { episode_id, scene_count: scenes.length, status: 'awaiting_image_approval' };
+      if (WorkflowService.shouldPause("script", approvalSteps)) {
+        episode.workflow_step = "script";
+        episode.workflow_status = "waiting_approval";
+        logger.info({ episode_id: episode.id }, "Script waiting approval");
+        return { ...episode, script };
+      }
+
+      episode.workflow_step = WorkflowService.getNextStep("script");
+      episode.workflow_status = "processing";
+
+      logger.info({ episode_id: episode.id, scenes: script.scenes.length }, "Script generation completed");
+      return { ...episode, script };
     },
-    { connection: redisConnection, concurrency: 3 }
+    { connection: redisConnection }
   );
 }

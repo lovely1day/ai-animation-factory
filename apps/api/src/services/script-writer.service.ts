@@ -1,14 +1,14 @@
-import { geminiJSON } from '../config/gemini';
 import { ScriptWritingInput, EpisodeScript } from '@ai-animation-factory/shared';
 import { logger } from '../utils/logger';
+import { hybridGenerateScript } from './hybrid-ai.service';
 
 export class ScriptWriterService {
   async write(input: ScriptWritingInput): Promise<EpisodeScript> {
-    logger.info({ episode_id: input.episode_id, scene_count: input.scene_count }, 'Writing episode script');
+    logger.info({ episode_id: input.episode_id, scene_count: input.scene_count }, 'Writing episode script (hybrid)');
 
     const { idea, scene_count } = input;
 
-    const prompt = `You are a professional animated series scriptwriter. Write a complete script for this episode.
+    const prompt = `You are a professional animated series scriptwriter. Write a complete episode script.
 
 Episode Concept:
 - Title: ${idea.title}
@@ -17,9 +17,9 @@ Episode Concept:
 - Target Audience: ${idea.target_audience}
 - Theme: ${idea.theme}
 
-Write exactly ${scene_count} scenes. Each scene should be 6-10 seconds of content.
+Write exactly ${scene_count} scenes. Each scene = 6-10 seconds of animation content.
 
-Return a JSON object with this exact structure:
+Return ONLY a JSON object with exactly this structure:
 {
   "title": "${idea.title}",
   "description": "${idea.description}",
@@ -30,31 +30,40 @@ Return a JSON object with this exact structure:
     {
       "scene_number": 1,
       "title": "Scene title",
-      "description": "What happens in this scene",
-      "visual_prompt": "Detailed description for AI image generation - include art style, colors, composition, characters, setting. Be very specific and visual.",
-      "dialogue": "Character dialogue or 'NARRATOR:' prefix for narration. Keep under 30 words.",
-      "narration": "Narrator voice-over text. Keep under 25 words.",
+      "description": "What happens visually in this scene",
+      "visual_prompt": "Detailed prompt for AI image generation. Include: art style (vibrant animated, cel-shaded), colors, lighting, characters appearance, setting details, camera angle. 30-50 words.",
+      "dialogue": "Character says this OR 'NARRATOR: voice-over text'. Max 30 words.",
+      "narration": "Background narration or atmosphere description. Max 25 words.",
       "duration_seconds": 8
     }
   ]
 }
 
-Important:
-- Make visual_prompt extremely detailed for image generation
-- Include art style: "vibrant animated style, cel-shaded, colorful"
-- Each scene should flow naturally to the next
-- Keep dialogue concise and natural
-- Ensure content is appropriate for ${idea.target_audience} audience
-- Return exactly ${scene_count} scenes`;
+Rules:
+- Exactly ${scene_count} scenes — no more, no less
+- visual_prompt must be rich and specific for image generation
+- Dialogue should feel natural for ${idea.target_audience} audience
+- Each scene flows naturally into the next (good pacing)
+- Return valid JSON only`;
 
-    const script = await geminiJSON<EpisodeScript>(prompt);
+    const context = `Title: ${idea.title}, Genre: ${idea.genre}, Audience: ${idea.target_audience}`;
 
-    if (script.scenes.length !== scene_count) {
-      logger.warn({ expected: scene_count, got: script.scenes.length }, 'Scene count mismatch');
+    const { result, engine, reviewed } = await hybridGenerateScript<EpisodeScript>(
+      prompt,
+      context,
+      {
+        mode: 'hybrid',
+        ollamaModel: 'mistral',
+        skipReview: false,
+      }
+    );
+
+    if (result.scenes?.length !== scene_count) {
+      logger.warn({ expected: scene_count, got: result.scenes?.length, engine }, 'Scene count mismatch');
     }
 
-    logger.info({ episode_id: input.episode_id, scenes: script.scenes.length }, 'Script written');
-    return script;
+    logger.info({ episode_id: input.episode_id, scenes: result.scenes?.length, engine, reviewed }, 'Script written');
+    return result;
   }
 }
 

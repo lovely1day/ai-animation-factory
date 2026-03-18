@@ -19,8 +19,8 @@ export const env = {
   API_URL: optional('API_URL', 'http://localhost:3004'),
 
   // Supabase
-  SUPABASE_URL: required('SUPABASE_URL'),
-  SUPABASE_SERVICE_KEY: required('SUPABASE_SERVICE_KEY'),
+  SUPABASE_URL: optional('SUPABASE_URL', 'http://localhost:54321'),
+  SUPABASE_SERVICE_KEY: optional('SUPABASE_SERVICE_KEY', 'dev-key'),
 
   // Redis
   REDIS_HOST: optional('REDIS_HOST', 'localhost'),
@@ -31,10 +31,18 @@ export const env = {
   STORAGE_BUCKET: optional('STORAGE_BUCKET', 'ai-animation-factory'),
   STORAGE_PUBLIC_URL: optional('STORAGE_PUBLIC_URL', ''),
 
-  // AI Services
-  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
+  // AI Services - Multi Provider Support
+  // Primary: Gemini (Recommended)
   GEMINI_API_KEY: optional('GEMINI_API_KEY', ''),
   GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.5-flash'),
+  
+  // Alternative Providers (Optional)
+  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
+  CLAUDE_API_KEY: optional('CLAUDE_API_KEY', ''),      // Anthropic Claude
+  GROK_API_KEY: optional('GROK_API_KEY', ''),          // xAI Grok
+  KIMI_API_KEY: optional('KIMI_API_KEY', ''),          // Moonshot Kimi
+  
+  // Other AI Services
   RUNWAY_API_KEY: optional('RUNWAY_API_KEY', ''),
   RUNWAY_API_URL: optional('RUNWAY_API_URL', 'https://api.runwayml.com/v1'),
   ELEVENLABS_API_KEY: optional('ELEVENLABS_API_KEY', ''),
@@ -45,6 +53,19 @@ export const env = {
   // Auth (optional for development)
   JWT_SECRET: optional('JWT_SECRET', 'dev-secret-key-for-testing-only-change-in-production'),
   JWT_EXPIRY: optional('JWT_EXPIRY', '7d'),
+
+  // ComfyUI
+  COMFYUI_URL: optional('COMFYUI_URL', 'http://localhost:8188'),
+
+  // MediaVoice Studio (local TTS/STT service)
+  MEDIAVORICE_URL: optional('MEDIAVORICE_URL', 'http://localhost:8000'),
+
+  // Ollama (Local LLM)
+  OLLAMA_URL: optional('OLLAMA_URL', 'http://localhost:11434'),
+  OLLAMA_MODEL: optional('OLLAMA_MODEL', 'llama3'),
+
+  // AI Provider selection: "gemini" | "ollama" | "auto" (default: auto = gemini first, ollama fallback)
+  AI_PROVIDER: optional('AI_PROVIDER', 'auto'),
 
   // Generation settings
   EPISODES_PER_HOUR: parseInt(optional('EPISODES_PER_HOUR', '5'), 10),

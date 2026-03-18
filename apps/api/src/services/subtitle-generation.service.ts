@@ -1,100 +1,138 @@
-import { SubtitleGenerationInput } from '@ai-animation-factory/shared';
-import { openai } from '../config/openai';
-import { storageService } from './storage.service';
-import { logger } from '../utils/logger';
-import path from 'path';
-import fs from 'fs/promises';
-import os from 'os';
-import ffmpeg from 'fluent-ffmpeg';
+import { storageService } from "./storage.service";
+import { logger } from "../utils/logger";
 
-export interface SubtitleGenerationResult {
-  subtitle_url: string;
-  file_key: string;
-  transcript: string;
+export interface SubtitleEntry {
+  index: number;
+  start: number;   // seconds
+  end: number;     // seconds
+  text: string;
 }
 
-export class SubtitleGenerationService {
-  async generate(input: SubtitleGenerationInput): Promise<SubtitleGenerationResult> {
-    logger.info({ episode_id: input.episode_id }, 'Generating subtitles');
+export interface SubtitleResult {
+  subtitle_url: string;
+  file_key: string;
+  entries: SubtitleEntry[];
+}
 
-    // Download video to temp file
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'subtitles-'));
-    const tmpVideoPath = path.join(tmpDir, 'video.mp4');
-    const tmpAudioPath = path.join(tmpDir, 'audio.mp3');
+function secondsToSrtTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
+}
 
-    try {
-      // Download video
-      const videoResponse = await fetch(input.video_url);
-      if (!videoResponse.ok) throw new Error('Failed to download video for subtitle generation');
-      await fs.writeFile(tmpVideoPath, Buffer.from(await videoResponse.arrayBuffer()));
+function buildSrt(entries: SubtitleEntry[]): string {
+  return entries
+    .map((e) => `${e.index}\n${secondsToSrtTime(e.start)} --> ${secondsToSrtTime(e.end)}\n${e.text}`)
+    .join("\n\n");
+}
 
-      // Extract audio using ffmpeg
-      await this.extractAudio(tmpVideoPath, tmpAudioPath);
+function buildVtt(entries: SubtitleEntry[]): string {
+  const body = entries
+    .map((e) => `${secondsToSrtTime(e.start).replace(",", ".")} --> ${secondsToSrtTime(e.end).replace(",", ".")}\n${e.text}`)
+    .join("\n\n");
+  return `WEBVTT\n\n${body}`;
+}
 
-      // Transcribe with Whisper
-      const audioFile = await fs.readFile(tmpAudioPath);
-      const audioBlob = new File([audioFile], 'audio.mp3', { type: 'audio/mpeg' });
+class SubtitleGenerationService {
+  /**
+   * Generate subtitles from scene dialogue/narration data.
+   * Each scene contributes one subtitle entry timed to its duration.
+   */
+  async generateFromScenes(
+    episodeId: string,
+    scenes: Array<{ scene_number: number; dialogue?: string; narration?: string; duration_seconds: number }>
+  ): Promise<SubtitleResult> {
+    logger.info({ episode_id: episodeId, scene_count: scenes.length }, "Generating subtitles from scenes");
 
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioBlob,
-        model: 'whisper-1',
-        response_format: 'verbose_json',
-        timestamp_granularities: ['segment'],
-      });
+    const entries: SubtitleEntry[] = [];
+    let timeOffset = 0;
 
-      // Convert to SRT format
-      const srt = this.toSRT(transcription.segments || []);
+    const sortedScenes = [...scenes].sort((a, b) => a.scene_number - b.scene_number);
 
-      // Upload SRT file
-      const fileKey = `episodes/${input.episode_id}/subtitles.srt`;
-      const uploadedUrl = await storageService.uploadBuffer(
-        Buffer.from(srt, 'utf-8'),
-        fileKey,
-        'text/plain'
-      );
+    for (const scene of sortedScenes) {
+      const text = scene.dialogue || scene.narration || "";
+      const duration = scene.duration_seconds || 8;
 
-      logger.info({ episode_id: input.episode_id }, 'Subtitles generated');
+      if (text.trim()) {
+        // Split long text into ~5-second chunks
+        const words = text.trim().split(" ");
+        const wordsPerChunk = Math.max(1, Math.round(words.length * 5 / duration));
+        const chunks: string[] = [];
 
-      return {
-        subtitle_url: uploadedUrl,
-        file_key: fileKey,
-        transcript: transcription.text,
-      };
-    } finally {
-      await fs.rm(tmpDir, { recursive: true, force: true });
+        for (let i = 0; i < words.length; i += wordsPerChunk) {
+          chunks.push(words.slice(i, i + wordsPerChunk).join(" "));
+        }
+
+        const chunkDuration = duration / chunks.length;
+
+        chunks.forEach((chunk, idx) => {
+          const start = timeOffset + idx * chunkDuration;
+          const end = start + chunkDuration - 0.1;
+          entries.push({
+            index: entries.length + 1,
+            start,
+            end,
+            text: chunk,
+          });
+        });
+      }
+
+      timeOffset += duration;
     }
+
+    // Build SRT content
+    const srtContent = buildSrt(entries);
+    const vttContent = buildVtt(entries);
+
+    // Upload SRT
+    const srtKey = `episodes/${episodeId}/subtitles.srt`;
+    const srtBuffer = Buffer.from(srtContent, "utf-8");
+    const srtUrl = await storageService.uploadBuffer(srtBuffer, srtKey, "text/plain");
+
+    // Upload VTT (for browser players)
+    const vttKey = `episodes/${episodeId}/subtitles.vtt`;
+    const vttBuffer = Buffer.from(vttContent, "utf-8");
+    await storageService.uploadBuffer(vttBuffer, vttKey, "text/vtt");
+
+    logger.info({ episode_id: episodeId, entries: entries.length }, "Subtitles generated and uploaded");
+
+    return {
+      subtitle_url: srtUrl,
+      file_key: srtKey,
+      entries,
+    };
   }
 
-  private extractAudio(videoPath: string, audioPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      ffmpeg(videoPath)
-        .noVideo()
-        .audioCodec('libmp3lame')
-        .audioBitrate('128k')
-        .output(audioPath)
-        .on('end', resolve)
-        .on('error', reject)
-        .run();
-    });
-  }
+  /**
+   * Generate a simple SRT from plain text with approximate timing.
+   */
+  async generateFromText(
+    episodeId: string,
+    text: string,
+    totalDurationSeconds: number
+  ): Promise<SubtitleResult> {
+    const words = text.trim().split(/\s+/);
+    const wordsPerSecond = words.length / totalDurationSeconds;
+    const chunkSize = Math.max(5, Math.round(wordsPerSecond * 5)); // ~5s per entry
 
-  private toSRT(segments: Array<{ start: number; end: number; text: string }>): string {
-    return segments
-      .map((seg, i) => {
-        const start = this.formatTime(seg.start);
-        const end = this.formatTime(seg.end);
-        return `${i + 1}\n${start} --> ${end}\n${seg.text.trim()}\n`;
-      })
-      .join('\n');
-  }
+    const entries: SubtitleEntry[] = [];
+    for (let i = 0; i < words.length; i += chunkSize) {
+      const chunk = words.slice(i, i + chunkSize).join(" ");
+      const start = (i / words.length) * totalDurationSeconds;
+      const end = Math.min(((i + chunkSize) / words.length) * totalDurationSeconds, totalDurationSeconds);
+      entries.push({ index: entries.length + 1, start, end, text: chunk });
+    }
 
-  private formatTime(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    const ms = Math.round((seconds % 1) * 1000);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+    const srtContent = buildSrt(entries);
+    const srtKey = `episodes/${episodeId}/subtitles.srt`;
+    const srtUrl = await storageService.uploadBuffer(Buffer.from(srtContent, "utf-8"), srtKey, "text/plain");
+
+    return { subtitle_url: srtUrl, file_key: srtKey, entries };
   }
 }
 
 export const subtitleGenerationService = new SubtitleGenerationService();
+// Keep backward-compatible alias
+export const subtitleService = subtitleGenerationService;
