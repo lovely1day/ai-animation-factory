@@ -156,7 +156,7 @@ export function LivingCanvas({ cb }: LivingCanvasProps) {
 
       {/* ── Avatar frame with era background ──────────── */}
       <div className="relative rounded-2xl overflow-hidden border border-white/10 aspect-[3/4]
-                      bg-[#0c0c10]">
+                      bg-[#0c0c10]/60 backdrop-blur-sm">
 
         {/* Era Environment — atmospheric background layers */}
         <EraEnvironment eraCode={eraCode} />

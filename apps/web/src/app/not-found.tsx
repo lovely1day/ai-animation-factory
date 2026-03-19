@@ -31,7 +31,7 @@ export default function NotFound() {
   }, []);
 
   return (
-    <main className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden">
+    <main className="relative min-h-screen bg-transparent flex items-center justify-center overflow-hidden">
       {/* Grid background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(139,92,246,0.15)_0%,_transparent_70%)]" />

@@ -205,7 +205,7 @@ export default function AppFooter() {
             >
               <div className="relative w-10 h-10">
                 <Image
-                  src="/images/jl-logo.png.jpg"
+                  src="/images/jl-logo.png"
                   alt="JackoLeeno JL"
                   fill
                   className="object-contain drop-shadow-[0_0_10px_rgba(139,92,246,0.5)]"

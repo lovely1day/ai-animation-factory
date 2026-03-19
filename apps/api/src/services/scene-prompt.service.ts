@@ -1,5 +1,5 @@
 import { generateJSON } from '../config/ai-provider';
-import { SceneScript } from '@ai-animation-factory/shared';
+import { SceneScript, injectCharacterIntoScene } from '@ai-animation-factory/shared';
 import { logger } from '../utils/logger';
 
 export interface EnhancedScenePrompt {
@@ -38,8 +38,13 @@ export class ScenePromptService {
     const baseStyle = styleMap[genre] || 'high-quality animated style';
     const audStyle = audienceStyle[audience] || 'family-friendly animation';
 
+    // Inject character DNA if provided
+    const baseVisual = scene.character_dna
+      ? injectCharacterIntoScene(scene.visual_prompt, scene.character_dna, "foreground")
+      : scene.visual_prompt;
+
     const enhanced: EnhancedScenePrompt = {
-      visual_prompt: `${scene.visual_prompt}, ${baseStyle}, ${audStyle}, masterpiece quality, 16:9 aspect ratio`,
+      visual_prompt: `${baseVisual}, ${baseStyle}, ${audStyle}, masterpiece quality, 16:9 aspect ratio`,
       negative_prompt: 'realistic photo, 3D render, blurry, low quality, watermark, text, violence, inappropriate content',
       style_tags: [baseStyle, audStyle, 'animated', 'high quality'],
     };

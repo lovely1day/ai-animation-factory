@@ -10,9 +10,13 @@ export function isKimiConfigured(): boolean {
 async function kimiChat(messages: { role: string; content: string }[], jsonMode = false): Promise<string> {
   if (!env.KIMI_API_KEY) throw new Error('KIMI_API_KEY is not configured');
 
+  const allMessages = jsonMode
+    ? [{ role: 'system', content: 'You are a helpful assistant that responds only with valid JSON objects. Never include text, markdown, or explanation outside the JSON.' }, ...messages]
+    : messages;
+
   const body: Record<string, any> = {
     model: KIMI_MODEL,
-    messages,
+    messages: allMessages,
     temperature: 0.7,
     max_tokens: 4096,
   };

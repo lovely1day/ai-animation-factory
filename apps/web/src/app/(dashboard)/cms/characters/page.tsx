@@ -7,7 +7,7 @@ export const metadata = { title: "غرفة النجم | AI Animation Factory" };
 
 export default function CharactersPage() {
   return (
-    <div className="h-screen flex flex-col p-4 bg-[#09090d]">
+    <div className="h-screen flex flex-col p-4 bg-transparent">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-white">غرفة النجم</h1>
         <p className="text-sm text-white/40">ابنِ شخصيتك بتفاصيل احترافية</p>

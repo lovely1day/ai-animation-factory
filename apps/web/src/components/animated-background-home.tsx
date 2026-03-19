@@ -5,10 +5,7 @@ import Image from "next/image";
 
 export function AnimatedBackgroundHome() {
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-      {/* Base gradient - smooth dark */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#050508] via-[#0a0a0f] to-[#080510]" />
-      
+    <div className="absolute inset-0 overflow-hidden">
       {/* Large JL Logo - Top Right Corner - Slow elegant float */}
       <motion.div
         className="absolute -right-40 -top-40 w-[700px] h-[700px]"
@@ -26,7 +23,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -55,7 +52,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -83,7 +80,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -112,7 +109,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -140,7 +137,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -166,7 +163,7 @@ export function AnimatedBackgroundHome() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -255,14 +252,6 @@ export function AnimatedBackgroundHome() {
           }}
         />
       ))}
-
-      {/* Subtle vignette for depth */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: "radial-gradient(ellipse at center, transparent 0%, rgba(5,5,8,0.4) 100%)",
-        }}
-      />
     </div>
   );
 }

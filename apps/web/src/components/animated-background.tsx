@@ -5,10 +5,7 @@ import Image from "next/image";
 
 export function AnimatedBackground() {
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-      {/* Dark base */}
-      <div className="absolute inset-0 bg-[#0a0a0f]/95" />
-      
+    <div className="absolute inset-0 overflow-hidden">
       {/* Animated JL Logo - Top Right */}
       <motion.div
         className="absolute -right-20 -top-20 w-[500px] h-[500px] opacity-[0.25]"
@@ -24,7 +21,7 @@ export function AnimatedBackground() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -51,7 +48,7 @@ export function AnimatedBackground() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -76,7 +73,7 @@ export function AnimatedBackground() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -102,7 +99,7 @@ export function AnimatedBackground() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -128,7 +125,7 @@ export function AnimatedBackground() {
         }}
       >
         <Image
-          src="/images/jl-logo.png.jpg"
+          src="/images/jl-logo.png"
           alt=""
           fill
           className="object-contain"
@@ -139,9 +136,6 @@ export function AnimatedBackground() {
         />
       </motion.div>
 
-      {/* Gradient Overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f]/50 via-transparent to-[#0a0a0f]/50" />
-      
       {/* Animated gradient orbs */}
       <motion.div
         className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full opacity-20"

@@ -13,6 +13,9 @@ export interface SceneScript {
   character_actions?: string;
   setting?: string;
   duration_seconds?: number;
+  // DNA string للشخصية المربوطة بهذا المشهد (اختياري)
+  // مثال: "v1|G:M|FS:FS001|EC:EC012|ERA:ERA_1920"
+  character_dna?: string;
   // حقول إضافية للتوليد
   generated_image_url?: string;
   generated_voice_url?: string;

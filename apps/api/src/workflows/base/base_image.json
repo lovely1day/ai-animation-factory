@@ -1,0 +1,114 @@
+{
+  "name": "base_image",
+  "description": "Base image generation workflow for standard portraits and scenes",
+  "version": "1.0.0",
+  "category": "base",
+  "comfyui_version": "0.2.0+",
+  "inputs": {
+    "prompt": {
+      "type": "string",
+      "required": true,
+      "description": "Main generation prompt"
+    },
+    "negative_prompt": {
+      "type": "string",
+      "default": "blurry, low quality, distorted, ugly",
+      "description": "Negative prompt to avoid"
+    },
+    "width": {
+      "type": "integer",
+      "default": 1024,
+      "min": 512,
+      "max": 2048
+    },
+    "height": {
+      "type": "integer",
+      "default": 1024,
+      "min": 512,
+      "max": 2048
+    },
+    "seed": {
+      "type": "integer",
+      "default": -1,
+      "description": "Random seed (-1 for random)"
+    },
+    "steps": {
+      "type": "integer",
+      "default": 30,
+      "min": 10,
+      "max": 50
+    },
+    "cfg": {
+      "type": "float",
+      "default": 5.5,
+      "min": 1.0,
+      "max": 15.0
+    }
+  },
+  "outputs": {
+    "images": {
+      "type": "array",
+      "description": "Generated image paths"
+    }
+  },
+  "workflow": {
+    "3": {
+      "inputs": {
+        "seed": 0,
+        "steps": 30,
+        "cfg": 5.5,
+        "sampler_name": "dpmpp_2m",
+        "scheduler": "karras",
+        "denoise": 1.0,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      },
+      "class_type": "KSampler"
+    },
+    "4": {
+      "inputs": {
+        "ckpt_name": "model.safetensors"
+      },
+      "class_type": "CheckpointLoaderSimple"
+    },
+    "5": {
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage"
+    },
+    "6": {
+      "inputs": {
+        "text": "base_positive_prompt",
+        "clip": ["4", 1]
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "7": {
+      "inputs": {
+        "text": "base_negative_prompt",
+        "clip": ["4", 1]
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "8": {
+      "inputs": {
+        "samples": ["3", 0],
+        "vae": ["4", 2]
+      },
+      "class_type": "VAEDecode"
+    },
+    "9": {
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": ["8", 0]
+      },
+      "class_type": "SaveImage"
+    }
+  },
+  "note": "Placeholder workflow structure. Replace with actual ComfyUI workflow JSON exported from the UI."
+}

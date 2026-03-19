@@ -12,6 +12,7 @@ $ErrorActionPreference = "SilentlyContinue"
 # Paths — Projects
 $animationFactory = "C:\ALI_WORKSPACE\01_PROJECTS\ai-animation-factory"
 $mediavorice      = "C:\ALI_WORKSPACE\01_PROJECTS\mediavorice-studio\mediavorice-studio"
+$jackOps          = "C:\ALI_WORKSPACE\01_PROJECTS\jackoleeno-ops"
 $comfyUI          = "$animationFactory\ComfyUI"
 
 # Paths — Shared Library (08_LIBRARY) — single source for all Python envs
@@ -80,11 +81,11 @@ function Show-Status {
 Write-Header
 
 Write-Host "  Fixed Ports:" -ForegroundColor DarkCyan
-Write-Host "  Web:$($PORTS.WebApp)  |  API:$($PORTS.ApiServer)  |  Redis:$($PORTS.Redis)  |  ComfyUI:$($PORTS.ComfyUI)  |  MediaVoice:$($PORTS.MediaVoice)" -ForegroundColor DarkGray
+Write-Host "  Web:$($PORTS.WebApp)  |  API:$($PORTS.ApiServer)  |  Redis:$($PORTS.Redis)  |  ComfyUI:$($PORTS.ComfyUI)  |  MediaVoice:$($PORTS.MediaVoice)  |  JackOps:$($PORTS.JackOps)" -ForegroundColor DarkGray
 Write-Host ""
 
 # ── 1. REDIS (Windows Service) ───────────────────────────────
-Write-Host "  [1/5]  Redis  (port $($PORTS.Redis))..." -ForegroundColor White
+Write-Host "  [1/6]  Redis  (port $($PORTS.Redis))..." -ForegroundColor White
 $redis = Get-Service -Name "Redis" -ErrorAction SilentlyContinue
 if ($redis -and $redis.Status -eq "Running") {
     Write-Host "  [OK]  Redis  -->  localhost:$($PORTS.Redis)  (service)" -ForegroundColor Green
@@ -99,31 +100,39 @@ if ($redis -and $redis.Status -eq "Running") {
 Write-Host ""
 
 # ── 2. COMFYUI (port 8188) ────────────────────────────────────
-Write-Host "  [2/5]  ComfyUI  (port $($PORTS.ComfyUI))..." -ForegroundColor White
+Write-Host "  [2/6]  ComfyUI  (port $($PORTS.ComfyUI))..." -ForegroundColor White
 Clear-Port $PORTS.ComfyUI "ComfyUI"
-$comfyCmd = "cd '$comfyUI'; Write-Host 'ComfyUI starting on port $($PORTS.ComfyUI)...' -ForegroundColor Cyan; & '$comfyEnvPy' main.py --port $($PORTS.ComfyUI) --listen"
+$comfyCmd = "cd '$comfyUI'; Write-Host 'ComfyUI starting on port $($PORTS.ComfyUI)...' -ForegroundColor Cyan; & '$comfyEnvPy' main.py --port $($PORTS.ComfyUI) --listen --enable-cors-header --force-fp32"
 Start-Window -Title "ComfyUI :$($PORTS.ComfyUI)" -Command $comfyCmd -WorkDir $comfyUI
 Show-Status "ComfyUI" $PORTS.ComfyUI $URLS.ComfyUI
 Write-Host ""
 
 # ── 3. MEDIAVORICE STUDIO (port 8000) ─────────────────────────
-Write-Host "  [3/5]  MediaVoice Studio  (port $($PORTS.MediaVoice))..." -ForegroundColor White
+Write-Host "  [3/6]  MediaVoice Studio  (port $($PORTS.MediaVoice))..." -ForegroundColor White
 Clear-Port $PORTS.MediaVoice "MediaVoice"
 $voiceCmd = "cd '$mediavorice\backend'; `$env:PATH += ';C:\ffmpeg\bin'; Write-Host 'MediaVoice starting on port $($PORTS.MediaVoice)...' -ForegroundColor Cyan; & '$mediavoriceEnv' -m uvicorn main:app --host 0.0.0.0 --port $($PORTS.MediaVoice)"
 Start-Window -Title "MediaVoice :$($PORTS.MediaVoice)" -Command $voiceCmd -WorkDir "$mediavorice\backend"
 Show-Status "MediaVoice Studio" $PORTS.MediaVoice $URLS.MediaDocs
 Write-Host ""
 
-# ── 4. API SERVER (port 3001) ──────────────────────────────────
-Write-Host "  [4/5]  API Server  (port $($PORTS.ApiServer))..." -ForegroundColor White
+# ── 4. JACKOLEENO OPS DASHBOARD (port 9000) ───────────────────
+Write-Host "  [4/6]  JackoLeeno Ops  (port $($PORTS.JackOps))..." -ForegroundColor White
+Clear-Port $PORTS.JackOps "JackOps"
+$jackOpsCmd = "cd '$jackOps'; Write-Host 'JackoLeeno Ops starting on port $($PORTS.JackOps)...' -ForegroundColor Magenta; npm run dev -- -p $($PORTS.JackOps)"
+Start-Window -Title "JackOps :$($PORTS.JackOps)" -Command $jackOpsCmd -WorkDir $jackOps
+Show-Status "JackoLeeno Ops" $PORTS.JackOps $URLS.JackOps
+Write-Host ""
+
+# ── 5. API SERVER (port 3001) ──────────────────────────────────
+Write-Host "  [5/6]  API Server  (port $($PORTS.ApiServer))..." -ForegroundColor White
 Clear-Port $PORTS.ApiServer "API"
 $apiCmd = "cd '$animationFactory'; Write-Host 'API Server starting on port $($PORTS.ApiServer)...' -ForegroundColor Cyan; pnpm --filter api dev"
 Start-Window -Title "API Server :$($PORTS.ApiServer)" -Command $apiCmd -WorkDir $animationFactory
 Show-Status "API Server" $PORTS.ApiServer $URLS.ApiHealth
 Write-Host ""
 
-# ── 5. WEB APP (port 3000) ─────────────────────────────────────
-Write-Host "  [5/5]  Web App  (port $($PORTS.WebApp))..." -ForegroundColor White
+# ── 6. WEB APP (port 3000) ─────────────────────────────────────
+Write-Host "  [6/6]  Web App  (port $($PORTS.WebApp))..." -ForegroundColor White
 Clear-Port $PORTS.WebApp "Web"
 $webCmd = "cd '$animationFactory'; Write-Host 'Web App starting on port $($PORTS.WebApp)...' -ForegroundColor Cyan; pnpm --filter web dev"
 Start-Window -Title "Web App :$($PORTS.WebApp)" -Command $webCmd -WorkDir $animationFactory
@@ -136,8 +145,9 @@ Write-Host "  |              ALL SERVICES STARTED!                 |" -Foregroun
 Write-Host "  +====================================================+" -ForegroundColor Cyan
 Write-Host "  |  Web App       -->  $($URLS.WebApp)" -ForegroundColor White
 Write-Host "  |  API Server    -->  $($URLS.ApiHealth)" -ForegroundColor White
-Write-Host "  |  MediaVoice   -->  $($URLS.MediaDocs)" -ForegroundColor White
+Write-Host "  |  MediaVoice    -->  $($URLS.MediaDocs)" -ForegroundColor White
 Write-Host "  |  ComfyUI       -->  $($URLS.ComfyUI)" -ForegroundColor White
+Write-Host "  |  JackoLeeno    -->  $($URLS.JackOps)" -ForegroundColor Magenta
 Write-Host "  |  Redis         -->  localhost:$($PORTS.Redis)" -ForegroundColor White
 Write-Host "  +====================================================+" -ForegroundColor Cyan
 Write-Host "  Optional: run 'ollama serve' for local LLM" -ForegroundColor DarkGray

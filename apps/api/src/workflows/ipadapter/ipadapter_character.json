@@ -1,0 +1,154 @@
+{
+  "name": "ipadapter_character",
+  "description": "IPAdapter workflow for consistent character generation across scenes",
+  "version": "1.0.0",
+  "category": "ipadapter",
+  "comfyui_version": "0.2.0+",
+  "requirements": [
+    "IPAdapter Plus custom nodes",
+    "Reference image for character"
+  ],
+  "inputs": {
+    "prompt": {
+      "type": "string",
+      "required": true,
+      "description": "Scene description with character"
+    },
+    "character_image": {
+      "type": "string",
+      "required": true,
+      "description": "Path to character reference image"
+    },
+    "negative_prompt": {
+      "type": "string",
+      "default": "blurry, low quality, distorted, different character, changed face",
+      "description": "Negative prompt to avoid"
+    },
+    "width": {
+      "type": "integer",
+      "default": 1024
+    },
+    "height": {
+      "type": "integer",
+      "default": 1024
+    },
+    "ipadapter_weight": {
+      "type": "float",
+      "default": 0.8,
+      "min": 0.0,
+      "max": 1.0,
+      "description": "How strongly to apply character reference"
+    },
+    "ipadapter_model": {
+      "type": "string",
+      "default": "ip-adapter_sd15.safetensors",
+      "description": "IPAdapter model to use"
+    },
+    "clip_vision_model": {
+      "type": "string",
+      "default": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"
+    }
+  },
+  "outputs": {
+    "images": {
+      "type": "array",
+      "description": "Generated images with consistent character"
+    },
+    "character_consistency_score": {
+      "type": "float",
+      "description": "Estimated consistency with reference"
+    }
+  },
+  "workflow": {
+    "note": "IPAdapter workflow structure. Requires IPAdapter Plus nodes installed in ComfyUI.",
+    "load_character_image": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "character_reference.png"
+      }
+    },
+    "ipadapter_loader": {
+      "class_type": "IPAdapterModelLoader",
+      "inputs": {
+        "ipadapter_file": "ipadapter_model.safetensors"
+      }
+    },
+    "clip_vision_loader": {
+      "class_type": "CLIPVisionLoader",
+      "inputs": {
+        "clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"
+      }
+    },
+    "ipadapter_apply": {
+      "class_type": "IPAdapterApply",
+      "inputs": {
+        "ipadapter": ["ipadapter_loader", 0],
+        "image": ["load_character_image", 0],
+        "model": ["checkpoint_loader", 0],
+        "weight": 0.8,
+        "noise": 0.0,
+        "weight_type": "original",
+        "start_at": 0.0,
+        "end_at": 1.0,
+        "unfold_batch": false
+      }
+    },
+    "checkpoint_loader": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "model.safetensors"
+      }
+    },
+    "ksampler": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": ["ipadapter_apply", 0],
+        "seed": 0,
+        "steps": 30,
+        "cfg": 5.5,
+        "sampler_name": "dpmpp_2m",
+        "scheduler": "karras",
+        "positive": ["positive_encode", 0],
+        "negative": ["negative_encode", 0],
+        "latent_image": ["empty_latent", 0]
+      }
+    },
+    "positive_encode": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "ipadapter_positive_prompt",
+        "clip": ["checkpoint_loader", 1]
+      }
+    },
+    "negative_encode": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "ipadapter_negative_prompt",
+        "clip": ["checkpoint_loader", 1]
+      }
+    },
+    "empty_latent": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    },
+    "decode": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": ["ksampler", 0],
+        "vae": ["checkpoint_loader", 2]
+      }
+    },
+    "save_image": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": ["decode", 0],
+        "filename_prefix": "IPAdapter_Character"
+      }
+    }
+  },
+  "note": "This is a placeholder structure. Actual workflow requires IPAdapter Plus custom nodes to be installed in ComfyUI. Export real workflow from ComfyUI UI and replace this file."
+}

@@ -4,7 +4,7 @@ import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
-import { AnimatedBackground } from '@/components/animated-background';
+import { FloatingLogoBackground } from '@/components/layout/FloatingLogoBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,14 +27,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning className={`${inter.variable} ${cairo.variable}`}>
       <head suppressHydrationWarning />
-      <body className="bg-[#0a0a0f] text-white antialiased font-sans flex flex-col min-h-screen">
+      <body className="bg-[#0a0a0f] text-white antialiased font-sans flex flex-col min-h-screen relative">
         <LanguageProvider>
-          <AnimatedBackground />
-          <AppHeader />
-          <main className="flex-1 pt-16">
-            {children}
-          </main>
-          <AppFooter />
+          <FloatingLogoBackground />
+          <div className="relative z-10 flex flex-col min-h-screen">
+            <AppHeader />
+            <main className="flex-1 pt-16">
+              {children}
+            </main>
+            <AppFooter />
+          </div>
         </LanguageProvider>
       </body>
     </html>

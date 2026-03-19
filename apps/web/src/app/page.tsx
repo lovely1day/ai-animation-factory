@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { motion, useInView, useAnimation } from "framer-motion";
 import { useLang } from "@/contexts/language-context";
-import { AnimatedBackgroundHome } from "@/components/animated-background-home";
 import { IdeaGenerator } from "@/components/idea-generator";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -179,12 +178,9 @@ export default function HomePage() {
 
   return (
     <main
-      className="min-h-screen text-white overflow-hidden bg-transparent"
+      className="min-h-screen text-white overflow-hidden"
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
-      {/* Premium animated background - Home only */}
-      <AnimatedBackgroundHome />
-
       <div className="relative z-10">
         {/* AI Idea Generator Section - NOW FIRST */}
         <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-32 pb-20">

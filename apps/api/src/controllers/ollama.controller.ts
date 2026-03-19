@@ -2,12 +2,13 @@ import { Request, Response } from "express";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { geminiText, geminiTextJSON, isGeminiConfigured } from "../config/gemini";
-import { kimiText, kimiTextJSON, isKimiConfigured } from "../config/kimi";
 import { logger } from "../utils/logger";
 import { env } from "../config/env";
 
 const OLLAMA_URL = env.OLLAMA_URL || "http://localhost:11434";
-const ARABIC_MODEL = env.OLLAMA_MODEL || "mistral";
+const ARABIC_MODEL = env.OLLAMA_MODEL || "qwen2.5:7b";
+// Creative model for idea enhancement — best Arabic/multilingual performance
+const CREATIVE_MODEL = "qwen2.5:7b";
 
 // ==================== LIBRARY LOADER ====================
 
@@ -71,7 +72,7 @@ async function ollamaGenerate(
 /**
  * Generate with Ollama (json mode), then optionally review/improve with Gemini.
  */
-type ProviderMode = "ollama" | "gemini" | "ollama+gemini" | "kimi";
+type ProviderMode = "ollama" | "gemini" | "ollama+gemini";
 
 async function ollamaFirstGeminiReview(
   ollamaPrompt: string,
@@ -89,13 +90,6 @@ async function ollamaFirstGeminiReview(
     return { text, provider: "gemini" };
   }
 
-  // === Kimi-only mode ===
-  if (mode === "kimi") {
-    if (!isKimiConfigured()) throw new Error("Kimi is not configured");
-    logger.info("Using Kimi directly (kimi mode)");
-    const text = jsonMode ? await kimiTextJSON(ollamaPrompt) : await kimiText(ollamaPrompt);
-    return { text, provider: "kimi" };
-  }
 
   // === Step 1: Ollama ===
   let ollamaText: string;
@@ -176,13 +170,37 @@ function parseJSON<T>(text: string): T | null {
   return null;
 }
 
-/** Strip extra/double quotes and backticks that Ollama sometimes wraps values in */
+/**
+ * Fix missing Arabic definite article (ال) on common role labels.
+ * e.g. "بطل الرئيسي" → "البطل الرئيسي"
+ */
+function fixArabicRole(role: string): string {
+  // Words that must start with ال when followed by a modifier
+  const fixes: [RegExp, string][] = [
+    [/^بطل\b/, "البطل"],
+    [/^بطلة\b/, "البطلة"],
+    [/^خصم\b/, "الخصم"],
+    [/^خصمة\b/, "الخصمة"],
+    [/^حليف\b/, "الحليف"],
+    [/^حليفة\b/, "الحليفة"],
+    [/^شخصية\b/, "الشخصية"],
+  ];
+  for (const [pattern, replacement] of fixes) {
+    if (pattern.test(role)) return role.replace(pattern, replacement);
+  }
+  return role;
+}
+
+/** Strip extra/double quotes, backticks, and CJK artifacts that Ollama/qwen sometimes adds */
 function cleanStr(s: unknown): string {
   if (typeof s !== "string") return "";
   return s
     .trim()
     .replace(/^["'`]+|["'`]+$/g, "")  // strip leading/trailing quotes
     .replace(/"{2,}/g, "")             // remove double-double quotes mid-string
+    .replace(/[。．｡]/g, ".")          // replace Chinese/Japanese periods with ASCII period
+    .replace(/\s*[。．｡]\s*$/g, "")   // remove trailing CJK period entirely
+    .replace(/\.$/, "")                // remove trailing period (cleaner Arabic text)
     .trim();
 }
 
@@ -228,65 +246,100 @@ interface ScriptCollection {
 
 // ==================== PROMPT BUILDERS ====================
 
-function buildEnhanceIdeaPrompt(idea: string, lib: Record<string, string>): string {
-  return `أنت خبير في تطوير قصص الرسوم المتحركة العربية بمستوى ديزني ونتفليكس.
+function buildEnhanceIdeaPrompt(idea: string, _lib: Record<string, string>, genreHint?: string, platformHint?: string): string {
+  const genre = genreHint || 'adventure';
+  const platform = platformHint || 'cinematic';
 
-## مرجع بنية القصة:
-${lib.story_structure ? lib.story_structure.split('\n').slice(0, 30).join('\n') : "بنية الفصول الثلاثة: تمهيد، صراع، حل"}
+  return `You are a professional Hollywood-level screenwriter and story developer.
 
-## فكرة المستخدم:
+## YOUR TASK
+Take the Arabic story idea below, develop it into a rich cinematic concept, then output the result as a JSON with Arabic text values.
+
+## STORY IDEA (in Arabic — develop this exact story)
 "${idea}"
 
-## المطلوب:
-حسّن هذه الفكرة وطوّرها إلى مشروع سينمائي احترافي.
+## GENRE: ${genre}
+## STYLE: ${platform}
 
-قواعد مهمة:
-- اكتب بالعربية فقط في جميع الحقول
-- لا تضع علامات اقتباس داخل النصوص
-- لا تستخدم كلمات إنجليزية إلا في حقل imagePrompt
+## DEVELOPMENT PROCESS (think through this):
+1. What is the historical/physical setting of this story?
+2. What is the central conflict and who causes it?
+3. What drives the protagonist — revenge, survival, honor?
+4. What are the key story beats: betrayal → survival → rise → revenge?
+5. What makes this story unique and cinematic?
+6. Who are the key characters (3 to 5) by name, role, and personality? Include ALL characters mentioned in the original idea.
 
-أجب بـ JSON فقط — لا تكتب أي نص خارج الـ JSON أبداً:
-{
-  "title": "العنوان الجذاب للمسلسل",
-  "concept": "وصف مفصل للقصة في 4-5 جمل يشمل الحبكة والصراع والرسالة",
-  "genre": "النوع",
-  "targetAge": "الفئة العمرية",
-  "theme": "الموضوع الرئيسي",
-  "characters": [
-    {
-      "name": "اسم الشخصية",
-      "role": "دورها",
-      "age": "عمرها",
-      "desc": "وصف شخصيتها"
-    }
-  ]
-}`;
+## OUTPUT RULES
+- Output ONLY valid JSON — no text before or after the JSON block
+- ALL string values must be written in Arabic
+- Character names must be real Arabic names (e.g. ياسر، سلمى، نادر، فاطمة)
+- title: dramatic Arabic title, 2-5 words, evocative — NOT a generic label
+- concept: 4 sentences in Arabic covering setting, trigger event, conflict, and emotional stakes — be SPECIFIC to this story
+- theme: one Arabic phrase capturing the moral (e.g. الخيانة تولد الثأر، من الموت تولد الأسطورة)
+- targetAge: بالغون or عائلي or مراهقون
+- characters: 3 to 5 characters — include ALL named characters from the original idea (e.g. if the idea mentions نور، سلمى، فاطمة they must ALL appear). Each with real Arabic name, role description in Arabic, age as number, Arabic personality description specific to THIS story
+- CRITICAL: Arabic gender agreement in role field — for female characters (e.g. سلمى، فاطمة، ليلى، نور) use feminine forms: الحليفة الوفية / الشخصية المحورية / الخصمة الرئيسية / البطلة. For male characters use masculine forms: الحليف الوفي / البطل الرئيسي / الخصم الرئيسي
+- IMPORTANT: role field must be in Arabic — never use English words like "protagonist" or "antagonist"
+- IMPORTANT: stay true to the original story's setting, characters, and events — the pirate/sea/betrayal elements must be present if they are in the original idea
+
+{"title":"...","concept":"...","genre":"...","targetAge":"...","theme":"...","characters":[{"name":"...","role":"...","age":"...","desc":"..."},{"name":"...","role":"...","age":"...","desc":"..."},{"name":"...","role":"...","age":"...","desc":"..."}]}`;
 }
 
 function buildVariationsPrompt(enhancedIdea: any): string {
-  return `أنت كاتب سيناريو محترف.
+  return `أنت كاتب سيناريو محترف متخصص في الرسوم المتحركة العربية.
 
-القصة: "${enhancedIdea.title}" — ${enhancedIdea.concept?.slice(0, 120)}
+القصة الأصلية: "${enhancedIdea.title}" — ${enhancedIdea.concept?.slice(0, 150)}
 
-قاعدة مهمة: اكتب بالعربية فقط. لا تستخدم كلمات إنجليزية إطلاقاً. لا تضع علامات اقتباس داخل النصوص.
+المطلوب: أنشئ 6 نسخ مختلفة من هذه القصة، كل نسخة بنوع مختلف تماماً.
+الأنواع المطلوبة بالترتيب: أكشن، كوميدي، درامي، خيال علمي، تشويق وغموض، رومانسي مغامر.
 
-أنشئ 3 نسخ من القصة. كل نسخة: عنوان + جملتان وصف + نبرة.
+قواعد مهمة:
+- اكتب بالعربية فقط
+- كل نسخة يجب أن تكون مختلفة فعلاً في الحبكة والشخصيات وليس فقط النبرة
+- عنوان جذاب ومختلف لكل نسخة
+- لا تضع علامات اقتباس داخل النصوص
 
-أجب بـ JSON فقط، لا تكتب أي شيء قبل { أو بعد }:
-{"variations":[{"id":1,"title":"عنوان النسخة الكوميدية هنا","concept":"الجملة الأولى للوصف الكوميدي. الجملة الثانية.","tone":"كوميدي","uniqueElement":"العنصر المميز"},{"id":2,"title":"عنوان النسخة الدرامية هنا","concept":"الجملة الأولى للوصف الدرامي. الجملة الثانية.","tone":"درامي","uniqueElement":"العنصر المميز"},{"id":3,"title":"عنوان النسخة المثيرة هنا","concept":"الجملة الأولى للوصف المثير. الجملة الثانية.","tone":"أكشن","uniqueElement":"العنصر المميز"}]}`;
+أجب بـ JSON فقط:
+{"variations":[
+  {"id":1,"genre":"أكشن","icon":"⚔️","title":"عنوان نسخة الأكشن","concept":"وصف مثير في جملتين يركز على المعارك والإثارة.","uniqueElement":"العنصر المميز"},
+  {"id":2,"genre":"كوميدي","icon":"🎭","title":"عنوان نسخة الكوميدي","concept":"وصف مضحك في جملتين يركز على المواقف الطريفة.","uniqueElement":"العنصر المميز"},
+  {"id":3,"genre":"درامي","icon":"🎬","title":"عنوان نسخة الدراما","concept":"وصف عاطفي في جملتين يركز على العلاقات والمشاعر.","uniqueElement":"العنصر المميز"},
+  {"id":4,"genre":"خيال علمي","icon":"🚀","title":"عنوان نسخة الخيال العلمي","concept":"وصف علمي في جملتين يركز على التكنولوجيا والمستقبل.","uniqueElement":"العنصر المميز"},
+  {"id":5,"genre":"تشويق وغموض","icon":"🔍","title":"عنوان نسخة الغموض","concept":"وصف مشوق في جملتين يركز على الألغاز والأسرار.","uniqueElement":"العنصر المميز"},
+  {"id":6,"genre":"رومانسي مغامر","icon":"💫","title":"عنوان نسخة الرومانسي","concept":"وصف رومانسي في جملتين يركز على العلاقة بين البطلين.","uniqueElement":"العنصر المميز"}
+]}`;
 }
 
 function buildScriptPromptJSON(idea: any, versionName: string, tone: string): string {
-  return `اكتب سيناريو رسوم متحركة عربي.
-العنوان: ${cleanStr(String(idea.title || ""))}
-النوع: ${cleanStr(String(idea.genre || "مغامرة"))}
-النبرة: ${tone}
+  const secondary = Array.isArray(idea.secondaryGenres) && idea.secondaryGenres.length > 0
+    ? `\nأنواع ثانوية: ${idea.secondaryGenres.join('، ')}`
+    : '';
+  const platform = idea.platformStyle
+    ? `\nأسلوب المنصة: ${idea.platformStyle} — ${idea.platformDesc || ''}`
+    : '';
+  const toneStr = idea.tone ? `\nالنبرة: ${idea.tone}` : (tone ? `\nالنبرة: ${tone}` : '');
+  const audienceStr = idea.audience ? `\nالجمهور المستهدف: ${idea.audience}` : '';
+  const formatStr = idea.format ? `\nشكل الإنتاج: ${idea.format}` : '';
 
-أعطني JSON فيه: logline (جملة)، synopsis (جملتان)، characters (مصفوفة شخصيتين)، scenes (مصفوفة 4 مشاهد).
+  return `You are a professional Arabic screenplay writer. Write a complete 4-scene script based on the story below.
 
-كل مشهد يحتوي: sceneNumber، location، timeOfDay، dialogue، action، imagePrompt (إنجليزي).
+STORY TITLE: ${cleanStr(String(idea.title || ""))}
+STORY CONCEPT: ${cleanStr(String(idea.concept || ""))}
+GENRE: ${cleanStr(String(idea.genre || ""))}${secondary}${platform}${toneStr}${audienceStr}${formatStr}
 
-JSON فقط بدون أي نص خارجه:`;
+CRITICAL LANGUAGE RULES — STRICTLY FOLLOW:
+- location field: MUST be in Arabic (e.g. شاطئ البحر المتوسط، كهف جزيرة مهجورة)
+- timeOfDay field: MUST be in Arabic (e.g. الفجر، الصباح، الظهر، المساء، الليل)
+- dialogue field: MUST be in Arabic — this is what characters SAY out loud
+- action field: MUST be in Arabic — describe what characters DO
+- imagePrompt field: MUST be in English — cinematic visual description for AI image generation
+- characters role field: use correct Arabic gender agreement — female names (e.g. سلمى، فاطمة، ليلى) must use feminine: الحليفة الوفية / البطلة / الخصمة
+
+Write 4 scenes that follow the story arc: (1) setup/betrayal → (2) survival/decision → (3) planning/rise → (4) confrontation/revenge.
+Each scene must advance the plot of THIS specific story.
+
+Respond with ONLY valid JSON — no text before or after:
+{"logline":"جملة جذابة تصف العمل بالعربية","synopsis":"ملخص القصة بجملتين بالعربية","characters":[{"name":"اسم عربي","role":"الدور بالعربية","age":"العمر","desc":"الوصف بالعربية"}],"scenes":[{"sceneNumber":1,"location":"المكان بالعربية","timeOfDay":"الوقت بالعربية","dialogue":"الحوار بالعربية","action":"الحركة والوصف بالعربية","imagePrompt":"cinematic scene description in English for image generation"}]}`;
 }
 
 function buildRegenerateScenePromptJSON(
@@ -335,16 +388,17 @@ ${ollamaResult}
 }
 
 function buildVariationsReviewPrompt(ollamaResult: string): string {
-  return `أنت محرر سيناريو محترف. راجع هذه التنويعات الثلاث وحسّنها:
+  return `أنت محرر سيناريو محترف. راجع هذه التنويعات الست وحسّنها:
 
 ${ollamaResult}
 
 حسّن:
-- العناوين لتكون أكثر جذباً
-- المفاهيم لتكون أكثر وضوحاً وإثارة
-- العناصر المميزة لكل نسخة
+- العناوين لتكون أكثر جذباً وتسويقاً
+- المفاهيم لتكون أكثر وضوحاً وتميزاً بين الأنواع
+- تأكد أن كل نسخة مختلفة فعلاً عن الأخرى
+- احتفظ بحقول icon و genre كما هي
 
-احتفظ بنفس بنية JSON. أعد JSON محسّن فقط:`;
+احتفظ بنفس بنية JSON مع 6 عناصر. أعد JSON محسّن فقط:`;
 }
 
 function buildScriptReviewPrompt(ollamaResult: string, idea: any): string {
@@ -368,16 +422,19 @@ ${trimmed}
 /** تحسين فكرة واحدة — Ollama يولد، Gemini يراجع */
 export async function enhanceIdea(req: Request, res: Response) {
   try {
-    const { idea, model, provider: providerMode } = req.body;
+    const { idea, model, provider: providerMode, genreHint, platformHint } = req.body;
     if (!idea) return res.status(400).json({ error: "Idea is required" });
 
     const lib = getLibrary();
-    const ollamaPrompt = buildEnhanceIdeaPrompt(idea, lib);
+    const ollamaPrompt = buildEnhanceIdeaPrompt(idea, lib, genreHint, platformHint);
+
+    // Use CREATIVE_MODEL (qwen2.5) for idea enhancement — better multilingual quality
+    const selectedModel = model || CREATIVE_MODEL;
 
     const { text, provider } = await ollamaFirstGeminiReview(
       ollamaPrompt,
       (ollamaOut) => buildIdeaReviewPrompt(idea, ollamaOut),
-      model,
+      selectedModel,
       true,
       (providerMode as ProviderMode) || "ollama+gemini"
     );
@@ -397,7 +454,7 @@ export async function enhanceIdea(req: Request, res: Response) {
         result.characters = result.characters.map((c: any) => ({
           ...c,
           name: cleanStr(c.name),
-          role: cleanStr(c.role),
+          role: fixArabicRole(cleanStr(c.role)),
           desc: cleanStr(c.desc || c.personality || ""),
         }));
       }

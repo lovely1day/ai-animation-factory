@@ -97,10 +97,10 @@ export function CharacterRoom({ initialDNA, onSave }: CharacterRoomProps) {
   // ── Render ───────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-[#0f0f13] text-white rounded-2xl overflow-hidden border border-white/10">
+    <div className="flex flex-col h-full bg-[#0f0f13]/80 backdrop-blur-xl text-white rounded-2xl overflow-hidden border border-white/10">
 
       {/* ── Header ─────────────────────────────────────── */}
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-white/10 bg-[#141418]">
+      <header className="flex items-center gap-3 px-5 py-3 border-b border-white/10 bg-[#141418]/70 backdrop-blur-md">
 
         {/* Name input */}
         <input
@@ -190,7 +190,7 @@ export function CharacterRoom({ initialDNA, onSave }: CharacterRoomProps) {
 
         {/* Left: Preview */}
         <aside className="hidden lg:flex flex-col w-64 xl:w-72 border-r border-white/10
-                          bg-[#0c0c10] p-4 gap-4 shrink-0 overflow-y-auto">
+                          bg-[#0c0c10]/70 backdrop-blur-md p-4 gap-4 shrink-0 overflow-y-auto">
           <LivingCanvas cb={cb} />
         </aside>
 
@@ -218,7 +218,7 @@ export function CharacterRoom({ initialDNA, onSave }: CharacterRoomProps) {
           </nav>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto bg-[#1e1e26] rounded-tr-xl p-4 lg:p-6">
+          <div className="flex-1 overflow-y-auto bg-[#1e1e26]/75 backdrop-blur-sm rounded-tr-xl p-4 lg:p-6">
             {renderActiveTab()}
           </div>
 

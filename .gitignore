@@ -16,3 +16,28 @@ tmp/
 
 # Local Netlify folder
 .netlify
+
+# Python environments — لا ترفع للـ git أبداً
+ai_env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# AI & ML — ملفات ضخمة
+ai/
+ComfyUI/
+library/
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.onnx
+
+# Generated files
+project_tree.txt
+structure.txt
+prompt_engine.js
+query
