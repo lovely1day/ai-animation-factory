@@ -116,6 +116,7 @@ class ComfyUIService {
     steps?: number;
     cfg?: number;
     seed?: number;
+    negativePrompt?: string;
   } = {}): ComfyUIWorkflow {
     const {
       width = 1024,
@@ -123,6 +124,7 @@ class ComfyUIService {
       steps = 25,
       cfg = 7.5,
       seed = Math.floor(Math.random() * 999999999),
+      negativePrompt = "blurry, bad anatomy, low quality, worst quality, normal quality, text, watermark, signature",
     } = options;
 
     return {
@@ -164,7 +166,7 @@ class ComfyUIService {
       },
       "7": {
         inputs: {
-          text: "blurry, bad anatomy, low quality, worst quality, normal quality, text, watermark, signature",
+          text: negativePrompt,
           clip: ["4", 1],
         },
         class_type: "CLIPTextEncode",

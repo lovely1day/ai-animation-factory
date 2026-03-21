@@ -31,7 +31,7 @@ POST /api/generation/comfy
 */
 router.post("/comfy", async (req, res) => {
   try {
-    const { prompt, width = 1024, height = 1024, steps = 25 } = req.body;
+    const { prompt, negative_prompt, width = 1024, height = 1024, steps = 25 } = req.body;
 
     if (!prompt) {
       return res.status(400).json({
@@ -45,6 +45,7 @@ router.post("/comfy", async (req, res) => {
       width,
       height,
       steps,
+      negativePrompt: negative_prompt,
     });
 
     // Submit to ComfyUI
