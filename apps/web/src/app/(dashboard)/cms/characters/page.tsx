@@ -3,6 +3,7 @@
 // ============================================================
 import { CharacterRoom } from "@/components/character-room";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "غرفة النجم | AI Animation Factory" };
 
 export default function CharactersPage() {
