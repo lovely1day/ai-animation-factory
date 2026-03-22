@@ -108,7 +108,7 @@ export interface HybridOptions {
   /** Force a specific engine. Default: "hybrid" */
   mode?: 'hybrid' | 'ollama-only' | 'cloud-only';
   /** Ollama model to use. Default: mistral (better JSON) */
-  ollamaModel?: 'mistral' | 'llama3';
+  ollamaModel?: 'mistral' | 'llama3' | 'qwen2.5:7b';
   /** Skip cloud review to save cost (use when on budget) */
   skipReview?: boolean;
 }

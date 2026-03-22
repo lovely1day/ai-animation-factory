@@ -77,7 +77,8 @@ export default function CreatePage() {
   const [targetAudience, setTargetAudience] = useState("general");
 
   // AI generation state
-  const [generatingIdea, setGeneratingIdea] = useState(false);
+  const [generatingModel, setGeneratingModel] = useState<string | null>(null); // which model is loading
+  const [lastEngine, setLastEngine] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProvidersData | null>(null);
   const [showProviders, setShowProviders] = useState(false);
 
@@ -110,26 +111,28 @@ export default function CreatePage() {
       .catch(() => {});
   };
 
-  // AI Idea Generator
-  const handleGenerateIdea = async () => {
-    setGeneratingIdea(true);
+  // AI Idea Generator — per model
+  const handleGenerateIdea = async (ollamaModel: string) => {
+    setGeneratingModel(ollamaModel);
+    setLastEngine(null);
     setError("");
     try {
       const res = await fetch(`${API_URL}/api/generation/idea`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ genre, target_audience: targetAudience }),
+        body: JSON.stringify({ genre, target_audience: targetAudience, ollamaModel }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "فشل التوليد");
       const generated = data.data;
       setTitle(generated.title || "");
       setIdea(generated.description || "");
+      setLastEngine(generated.engine || ollamaModel);
       refreshProviders();
     } catch (err: any) {
       setError(`خطأ في توليد الفكرة: ${err.message}`);
     } finally {
-      setGeneratingIdea(false);
+      setGeneratingModel(null);
     }
   };
 
@@ -465,25 +468,38 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* AI Generate Idea Button */}
-          <button
-            type="button"
-            onClick={handleGenerateIdea}
-            disabled={generatingIdea}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 disabled:opacity-50 border border-violet-500/30 text-white font-medium py-3 px-6 rounded-xl transition-all"
-          >
-            {generatingIdea ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                يولّد الذكاء الاصطناعي الفكرة...
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4" />
-                توليد فكرة بالذكاء الاصطناعي
-              </>
+          {/* Ollama Model Buttons — كل زر = نموذج مختلف */}
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 text-center">اختر النموذج لتوليد الفكرة</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { model: "mistral",    label: "Mistral",   desc: "دقيق JSON",   color: "from-violet-600/80 to-purple-600/80 border-violet-500/30 hover:from-violet-500 hover:to-purple-500" },
+                { model: "llama3",     label: "LLaMA 3",   desc: "إبداعي",      color: "from-blue-600/80 to-cyan-600/80 border-blue-500/30 hover:from-blue-500 hover:to-cyan-500" },
+                { model: "qwen2.5:7b", label: "Qwen 2.5",  desc: "متوازن",      color: "from-emerald-600/80 to-teal-600/80 border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500" },
+              ].map(({ model, label, desc, color }) => (
+                <button
+                  key={model}
+                  type="button"
+                  onClick={() => handleGenerateIdea(model)}
+                  disabled={generatingModel !== null}
+                  className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br ${color} disabled:opacity-40 border text-white py-3 px-2 rounded-xl transition-all`}
+                >
+                  {generatingModel === model ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  <span className="font-semibold text-xs">{label}</span>
+                  <span className="text-[10px] text-white/60">{desc}</span>
+                </button>
+              ))}
+            </div>
+            {lastEngine && (
+              <p className="text-[11px] text-center text-gray-500">
+                ولّد بـ <span className="text-purple-400 font-mono">{lastEngine}</span>
+              </p>
             )}
-          </button>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-300">عنوان المسلسل</label>

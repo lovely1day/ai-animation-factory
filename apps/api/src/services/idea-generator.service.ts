@@ -22,9 +22,15 @@ const AUDIENCE_PROMPTS: Record<string, string> = {
   general: 'universally appealing, family-friendly',
 };
 
+export type OllamaModel = 'mistral' | 'llama3' | 'qwen2.5:7b';
+
 export class IdeaGeneratorService {
-  async generate(input: IdeaGenerationInput): Promise<IdeaGenerationOutput> {
-    logger.info({ genre: input.genre, audience: input.target_audience }, 'Generating episode idea (hybrid)');
+  async generate(
+    input: IdeaGenerationInput,
+    ollamaModel: OllamaModel = 'mistral',
+    skipReview = false,
+  ): Promise<IdeaGenerationOutput & { engine: string; reviewed: boolean }> {
+    logger.info({ genre: input.genre, audience: input.target_audience, ollamaModel }, 'Generating episode idea');
 
     const genreHint    = GENRES_PROMPTS[input.genre] || input.genre;
     const audienceHint = AUDIENCE_PROMPTS[input.target_audience] || input.target_audience;
@@ -53,15 +59,11 @@ Be creative, original, avoid clichés. Return valid JSON only.`;
     const { result, engine, reviewed } = await hybridGenerateIdea<IdeaGenerationOutput>(
       prompt,
       context,
-      {
-        mode: 'hybrid',      // Ollama generates → cloud reviews
-        ollamaModel: 'mistral', // mistral is better at structured JSON
-        skipReview: false,   // always review for idea quality
-      }
+      { mode: 'hybrid', ollamaModel, skipReview },
     );
 
-    logger.info({ title: result.title, engine, reviewed }, 'Episode idea generated');
-    return result;
+    logger.info({ title: result.title, engine, reviewed, ollamaModel }, 'Episode idea generated');
+    return { ...result, engine, reviewed };
   }
 }
 

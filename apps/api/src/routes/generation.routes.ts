@@ -16,11 +16,21 @@ const router: Router = Router();
  */
 router.post("/idea", async (req, res) => {
   try {
-    const { genre = "adventure", target_audience = "general", theme, provider } = req.body;
+    const {
+      genre = "adventure",
+      target_audience = "general",
+      theme,
+      ollamaModel = "mistral",   // mistral | llama3 | qwen2.5:7b
+      skipReview = false,
+    } = req.body;
 
-    logger.info({ genre, target_audience, theme, provider }, "Direct idea generation requested");
+    logger.info({ genre, target_audience, ollamaModel }, "Direct idea generation requested");
 
-    const idea = await ideaGeneratorService.generate({ genre, target_audience, theme });
+    const idea = await ideaGeneratorService.generate(
+      { genre, target_audience, theme },
+      ollamaModel,
+      skipReview,
+    );
 
     return res.json({ success: true, data: idea });
   } catch (err: any) {
