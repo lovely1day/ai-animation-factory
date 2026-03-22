@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
+import { scriptWriterService } from '../services/script-writer.service';
 import { WorkflowStep, WORKFLOW_STEP_DETAILS, calculateWorkflowProgress, getNextWorkflowStep } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
@@ -558,6 +559,8 @@ router.post('/:id/workflow/advance', async (req, res) => {
 /**
  * Start pipeline for an existing episode
  * POST /api/episodes/:id/start
+ * Generates the script directly (no Redis/queue needed).
+ * Returns immediately — generation happens in the background.
  */
 router.post('/:id/start', async (req, res) => {
   try {
@@ -565,7 +568,7 @@ router.post('/:id/start', async (req, res) => {
 
     const { data: episode, error } = await supabase
       .from('episodes')
-      .select('id, title, description, genre, target_audience, approval_steps, scene_count')
+      .select('id, title, description, idea, genre, target_audience, approval_steps, scene_count, theme, tags')
       .eq('id', id)
       .single();
 
@@ -573,15 +576,71 @@ router.post('/:id/start', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Episode not found' });
     }
 
-    await PipelineService.run(episode);
+    // Update status immediately so frontend shows loading
+    await supabase.from('episodes').update({
+      status: 'generating',
+      workflow_step: 'script',
+      workflow_status: 'processing',
+      workflow_progress: 5,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
 
-    logger.info({ episode_id: id }, 'Pipeline started for episode');
+    // Respond immediately — generation runs in background
+    res.json({ success: true, message: 'Generating script...', episode_id: id });
 
-    return res.json({
-      success: true,
-      message: 'Pipeline started',
-      episode_id: id,
-    });
+    // ── Background script generation (no Redis needed) ──
+    (async () => {
+      try {
+        const script = await scriptWriterService.write({
+          episode_id: id,
+          idea: {
+            title: episode.title,
+            description: episode.idea || episode.description || '',
+            genre: episode.genre || 'adventure',
+            target_audience: episode.target_audience || 'general',
+            theme: episode.theme || episode.genre || 'adventure',
+            tags: episode.tags || [],
+          },
+          scene_count: episode.scene_count || 8,
+        });
+
+        // Remove old scenes then insert new ones
+        await supabase.from('scenes').delete().eq('episode_id', id);
+
+        for (const scene of script.scenes) {
+          await supabase.from('scenes').insert({
+            episode_id: id,
+            scene_number: scene.scene_number,
+            title: scene.title,
+            description: scene.description,
+            visual_prompt: scene.visual_prompt,
+            dialogue: scene.dialogue,
+            narration: scene.narration,
+            duration_seconds: scene.duration_seconds || 8,
+            status: 'pending',
+          });
+        }
+
+        await supabase.from('episodes').update({
+          script_data: script,
+          scene_count: script.scenes.length,
+          workflow_step: 'script',
+          workflow_status: 'waiting_approval',
+          workflow_progress: 25,
+          updated_at: new Date().toISOString(),
+        }).eq('id', id);
+
+        logger.info({ episode_id: id, scenes: script.scenes.length }, 'Script generation complete');
+      } catch (bgErr: any) {
+        logger.error({ error: bgErr.message, episode_id: id }, 'Background script generation failed');
+        await supabase.from('episodes').update({
+          status: 'error',
+          workflow_status: 'failed',
+          updated_at: new Date().toISOString(),
+        }).eq('id', id);
+      }
+    })();
+
   } catch (err: any) {
     logger.error({ error: err.message, episode_id: req.params.id }, 'Failed to start pipeline');
     return res.status(500).json({ success: false, error: err.message });

@@ -11,7 +11,7 @@
  */
 
 import axios from 'axios';
-import { generateJSON, generateText, getBestProvider } from '../config/ai-provider';
+import { generateJSON, generateText, getBestProvider, trackUsage } from '../config/ai-provider';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -134,18 +134,26 @@ export async function hybridGenerateIdea<T>(
 
   // ── Stage 1: Ollama generation ──
   logger.info({ model: ollamaModel }, 'Hybrid Stage 1: Ollama generating idea');
-  const raw = await ollamaGenerate(prompt, ollamaModel);
-  const ollamaResult = parseOllamaJSON<T>(raw);
-  logger.info('Ollama idea generation complete');
+  try {
+    const raw = await ollamaGenerate(prompt, ollamaModel);
+    const ollamaResult = parseOllamaJSON<T>(raw);
+    trackUsage('ollama', true);
+    logger.info('Ollama idea generation complete');
 
-  if (mode === 'ollama-only' || skipReview) {
-    return { result: ollamaResult, engine: `ollama/${ollamaModel}`, reviewed: false };
+    if (mode === 'ollama-only' || skipReview) {
+      return { result: ollamaResult, engine: `ollama/${ollamaModel}`, reviewed: false };
+    }
+
+    // ── Stage 2: Cloud review ──
+    logger.info('Hybrid Stage 2: Cloud reviewing idea quality');
+    const reviewed = await reviewWithCloud<T>(ollamaResult, 'idea', context);
+    return { result: reviewed, engine: `ollama/${ollamaModel}+cloud-review`, reviewed: true };
+  } catch (ollamaErr: any) {
+    trackUsage('ollama', false, ollamaErr.message);
+    logger.warn({ err: ollamaErr.message }, 'Ollama failed — falling back to cloud');
+    const result = await generateJSON<T>(prompt);
+    return { result, engine: getBestProvider(), reviewed: false };
   }
-
-  // ── Stage 2: Cloud review ──
-  logger.info('Hybrid Stage 2: Cloud reviewing idea quality');
-  const reviewed = await reviewWithCloud<T>(ollamaResult, 'idea', context);
-  return { result: reviewed, engine: `ollama/${ollamaModel}+cloud-review`, reviewed: true };
 }
 
 /**
@@ -168,18 +176,26 @@ export async function hybridGenerateScript<T>(
 
   // Stage 1: Ollama
   logger.info({ model: ollamaModel }, 'Hybrid Stage 1: Ollama generating script');
-  const raw = await ollamaGenerate(prompt, ollamaModel);
-  const ollamaResult = parseOllamaJSON<T>(raw);
-  logger.info({ scenes: (ollamaResult as any).scenes?.length }, 'Ollama script generation complete');
+  try {
+    const raw = await ollamaGenerate(prompt, ollamaModel);
+    const ollamaResult = parseOllamaJSON<T>(raw);
+    trackUsage('ollama', true);
+    logger.info({ scenes: (ollamaResult as any).scenes?.length }, 'Ollama script generation complete');
 
-  if (mode === 'ollama-only' || skipReview) {
-    return { result: ollamaResult, engine: `ollama/${ollamaModel}`, reviewed: false };
+    if (mode === 'ollama-only' || skipReview) {
+      return { result: ollamaResult, engine: `ollama/${ollamaModel}`, reviewed: false };
+    }
+
+    // Stage 2: Cloud review
+    logger.info('Hybrid Stage 2: Cloud reviewing script quality');
+    const reviewed = await reviewWithCloud<T>(ollamaResult, 'script', context);
+    return { result: reviewed, engine: `ollama/${ollamaModel}+cloud-review`, reviewed: true };
+  } catch (ollamaErr: any) {
+    trackUsage('ollama', false, ollamaErr.message);
+    logger.warn({ err: ollamaErr.message }, 'Ollama failed — falling back to cloud');
+    const result = await generateJSON<T>(prompt);
+    return { result, engine: getBestProvider(), reviewed: false };
   }
-
-  // Stage 2: Cloud review
-  logger.info('Hybrid Stage 2: Cloud reviewing script quality');
-  const reviewed = await reviewWithCloud<T>(ollamaResult, 'script', context);
-  return { result: reviewed, engine: `ollama/${ollamaModel}+cloud-review`, reviewed: true };
 }
 
 /** Check Ollama status + available models */

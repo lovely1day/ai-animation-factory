@@ -3,10 +3,9 @@
   "version": 2,
   "name": "ai-animation-factory-web",
   "buildCommand": "pnpm --filter @ai-animation-factory/shared build && pnpm --filter @ai-animation-factory/web build",
-  "outputDirectory": "apps/web/.next",
+  "outputDirectory": ".next",
   "installCommand": "pnpm install --frozen-lockfile=false",
   "framework": "nextjs",
-  "rootDirectory": null,
   "headers": [
     {
       "source": "/(.*)",

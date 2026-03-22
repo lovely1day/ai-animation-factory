@@ -10,6 +10,40 @@ import Anthropic from '@anthropic-ai/sdk';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
+// ── Usage Tracking ────────────────────────────────────────────────────────────
+interface ProviderUsage {
+  calls: number;
+  success: number;
+  errors: number;
+  lastUsed: string | null;
+  lastError: string | null;
+}
+
+const usageStore: Record<string, ProviderUsage> = {
+  gemini: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+  openai: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+  claude: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+  grok:   { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+  kimi:   { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+  ollama: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
+};
+
+export function trackUsage(provider: string, success: boolean, error?: string) {
+  if (!usageStore[provider]) return;
+  usageStore[provider].calls++;
+  if (success) {
+    usageStore[provider].success++;
+    usageStore[provider].lastUsed = new Date().toISOString();
+  } else {
+    usageStore[provider].errors++;
+    usageStore[provider].lastError = error || 'unknown error';
+  }
+}
+
+export function getProviderUsage(): Record<string, ProviderUsage> {
+  return { ...usageStore };
+}
+
 // Provider Types
 export type AIProvider = 'gemini' | 'openai' | 'claude' | 'grok' | 'kimi' | 'auto';
 
@@ -164,19 +198,28 @@ export async function generateJSON<T>(
 
   logger.debug({ provider, model: options.model }, 'Generating JSON with AI provider');
 
-  switch (provider) {
-    case 'gemini':
-      return generateWithGemini<T>(prompt, options);
-    case 'openai':
-      return generateWithOpenAI<T>(prompt, options);
-    case 'claude':
-      return generateWithClaude<T>(prompt, options);
-    case 'grok':
-      return generateWithGrok<T>(prompt, options);
-    case 'kimi':
-      return generateWithKimi<T>(prompt, options);
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
+  if (usageStore[provider]) usageStore[provider].calls++;
+  try {
+    let result: T;
+    switch (provider) {
+      case 'gemini': result = await generateWithGemini<T>(prompt, options); break;
+      case 'openai': result = await generateWithOpenAI<T>(prompt, options); break;
+      case 'claude': result = await generateWithClaude<T>(prompt, options); break;
+      case 'grok':   result = await generateWithGrok<T>(prompt, options); break;
+      case 'kimi':   result = await generateWithKimi<T>(prompt, options); break;
+      default: throw new Error(`Unknown provider: ${provider}`);
+    }
+    if (usageStore[provider]) {
+      usageStore[provider].success++;
+      usageStore[provider].lastUsed = new Date().toISOString();
+    }
+    return result;
+  } catch (err: any) {
+    if (usageStore[provider]) {
+      usageStore[provider].errors++;
+      usageStore[provider].lastError = err.message?.substring(0, 120) || 'error';
+    }
+    throw err;
   }
 }
 

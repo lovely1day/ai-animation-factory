@@ -2,22 +2,40 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Sparkles, 
-  FileText, 
-  Image as ImageIcon, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Sparkles,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  CheckCircle2,
   XCircle,
   RefreshCw,
   Edit3,
   Play,
   Wand2,
   Film,
-  Clock
+  Clock,
+  Zap,
+  BarChart2,
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+interface ProviderInfo {
+  id: string;
+  enabled: boolean;
+  usage: { calls: number; success: number; errors: number; lastUsed: string | null; lastError: string | null };
+}
+
+interface ProvidersData {
+  providers: ProviderInfo[];
+  ollama: { running: boolean; models: string[]; recommended: string };
+  best_provider: string | null;
+  total_calls: number;
+}
 
 type WorkflowStep = 'idea' | 'script' | 'images' | 'completed' | 'image_generation';
 type WorkflowStatus = 'pending' | 'processing' | 'waiting_approval' | 'approved';
@@ -57,19 +75,63 @@ export default function CreatePage() {
   const [idea, setIdea] = useState("");
   const [genre, setGenre] = useState("adventure");
   const [targetAudience, setTargetAudience] = useState("general");
-  
+
+  // AI generation state
+  const [generatingIdea, setGeneratingIdea] = useState(false);
+  const [providers, setProviders] = useState<ProvidersData | null>(null);
+  const [showProviders, setShowProviders] = useState(false);
+
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('idea');
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [episodeData, setEpisodeData] = useState<EpisodeData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Approval state
   const [editedScript, setEditedScript] = useState<EpisodeData['data']['script'] | null>(null);
   const [editedScenes, setEditedScenes] = useState<Scene[]>([]);
   const [activeSceneTab, setActiveSceneTab] = useState(0);
   const [regeneratingScenes, setRegeneratingScenes] = useState<Set<number>>(new Set());
+
+  // Load provider status on mount
+  useEffect(() => {
+    fetch(`${API_URL}/api/generation/providers`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setProviders(d.data); })
+      .catch(() => {});
+  }, []);
+
+  // Refresh providers after each generation
+  const refreshProviders = () => {
+    fetch(`${API_URL}/api/generation/providers`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setProviders(d.data); })
+      .catch(() => {});
+  };
+
+  // AI Idea Generator
+  const handleGenerateIdea = async () => {
+    setGeneratingIdea(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/api/generation/idea`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ genre, target_audience: targetAudience }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "فشل التوليد");
+      const generated = data.data;
+      setTitle(generated.title || "");
+      setIdea(generated.description || "");
+      refreshProviders();
+    } catch (err: any) {
+      setError(`خطأ في توليد الفكرة: ${err.message}`);
+    } finally {
+      setGeneratingIdea(false);
+    }
+  };
 
   // Poll for updates
   useEffect(() => {
@@ -139,9 +201,11 @@ export default function CreatePage() {
 
       setEpisodeId(data.data.id);
       setCurrentStep('script');
-      
-      // Start pipeline
-      fetch(`${API_URL}/api/episodes/${data.data.id}/start`, { method: 'POST' }).catch(() => {});
+
+      // Start pipeline (generates script directly without Redis)
+      fetch(`${API_URL}/api/episodes/${data.data.id}/start`, { method: 'POST' })
+        .then(() => refreshProviders())
+        .catch(() => {});
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -284,8 +348,81 @@ export default function CreatePage() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto"
+      className="max-w-2xl mx-auto space-y-4"
     >
+      {/* ── Provider Status Panel ─────────────────────────────── */}
+      <div className="bg-white/[0.03] border border-white/10 rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowProviders(p => !p)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Activity className="w-4 h-4" />
+            <span>حالة مزودي الذكاء الاصطناعي</span>
+            {providers && (
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-xs">
+                {providers.providers.filter(p => p.enabled).length} نشط
+              </span>
+            )}
+            {providers?.total_calls ? (
+              <span className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 text-xs">
+                {providers.total_calls} طلب
+              </span>
+            ) : null}
+          </div>
+          {showProviders ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+        </button>
+
+        {showProviders && providers && (
+          <div className="px-4 pb-4 space-y-2 border-t border-white/5">
+            {/* Cloud providers */}
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              {providers.providers.map(p => (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
+                    p.enabled
+                      ? 'bg-green-500/10 border border-green-500/20'
+                      : 'bg-white/[0.03] border border-white/5 opacity-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${p.enabled ? 'bg-green-400' : 'bg-gray-600'}`} />
+                    <span className={p.enabled ? 'text-green-300' : 'text-gray-500'}>{p.id}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-500">
+                    {p.usage.calls > 0 && (
+                      <span className="flex items-center gap-1">
+                        <BarChart2 className="w-3 h-3" />
+                        {p.usage.success}/{p.usage.calls}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Ollama */}
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+              providers.ollama.running
+                ? 'bg-blue-500/10 border border-blue-500/20'
+                : 'bg-white/[0.03] border border-white/5 opacity-50'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${providers.ollama.running ? 'bg-blue-400' : 'bg-gray-600'}`} />
+              <span className={providers.ollama.running ? 'text-blue-300' : 'text-gray-500'}>
+                Ollama {providers.ollama.running ? `(${providers.ollama.models.length} نموذج)` : '(غير متاح)'}
+              </span>
+              {providers.best_provider && (
+                <span className="mr-auto text-gray-500">
+                  الأفضل: <span className="text-purple-300">{providers.best_provider}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Main Form ─────────────────────────────────────────── */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
@@ -295,32 +432,11 @@ export default function CreatePage() {
         </h2>
 
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">عنوان المسلسل</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="مثال: مغامرات الفضاء"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">الفكرة الرئيسية</label>
-            <textarea
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              placeholder="صف فكرتك بالتفصيل..."
-              rows={4}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">النوع</label>
               <select
+                title="النوع"
                 value={genre}
                 onChange={(e) => setGenre(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500"
@@ -336,6 +452,7 @@ export default function CreatePage() {
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">الفئة المستهدفة</label>
               <select
+                title="الفئة المستهدفة"
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500"
@@ -348,15 +465,60 @@ export default function CreatePage() {
             </div>
           </div>
 
+          {/* AI Generate Idea Button */}
+          <button
+            type="button"
+            onClick={handleGenerateIdea}
+            disabled={generatingIdea}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-500 disabled:opacity-50 border border-violet-500/30 text-white font-medium py-3 px-6 rounded-xl transition-all"
+          >
+            {generatingIdea ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                يولّد الذكاء الاصطناعي الفكرة...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" />
+                توليد فكرة بالذكاء الاصطناعي
+              </>
+            )}
+          </button>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">عنوان المسلسل</label>
+            <input
+              type="text"
+              title="عنوان المسلسل"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="مثال: مغامرات الفضاء"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-300">الفكرة الرئيسية</label>
+            <textarea
+              title="الفكرة الرئيسية"
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              placeholder="صف فكرتك بالتفصيل..."
+              rows={4}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
+            />
+          </div>
+
           {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300">
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-sm">
               {error}
             </div>
           )}
 
           <button
+            type="button"
             onClick={handleCreateEpisode}
-            disabled={loading}
+            disabled={loading || !title.trim() || !idea.trim()}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white font-semibold py-4 px-6 rounded-xl transition-all"
           >
             {loading ? (
@@ -367,7 +529,7 @@ export default function CreatePage() {
             ) : (
               <>
                 <Sparkles className="w-5 h-5" />
-                إنشاء المشروع
+                إنشاء المشروع وتوليد السكربت
               </>
             )}
           </button>
