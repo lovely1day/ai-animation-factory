@@ -19,7 +19,8 @@ app.use(cors({
     "https://www.feelthemusic.app",
     "http://localhost:8080",
     "http://localhost:3000",
-  ],
+    process.env.ALLOWED_ORIGIN ?? "",
+  ].filter(Boolean),
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
@@ -31,7 +32,7 @@ app.get("/", (_req, res) => {
   res.json({ status: "AI Animation Factory API running", version: "2.0.0" });
 });
 
-const PORT = env.API_PORT;
+const PORT = parseInt(process.env.PORT ?? String(env.API_PORT), 10);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT, env: env.NODE_ENV }, "API server started");
