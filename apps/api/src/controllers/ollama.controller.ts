@@ -4,6 +4,24 @@ import { join } from "path";
 import { geminiText, geminiTextJSON, isGeminiConfigured } from "../config/gemini";
 import { logger } from "../utils/logger";
 import { env } from "../config/env";
+import Anthropic from "@anthropic-ai/sdk";
+
+const claudeClient = env.CLAUDE_API_KEY ? new Anthropic({ apiKey: env.CLAUDE_API_KEY }) : null;
+
+async function claudeGenerateText(prompt: string): Promise<string> {
+  if (!claudeClient) throw new Error("Claude API key not configured");
+  const response = await claudeClient.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const block = response.content[0];
+  return block.type === "text" ? block.text : "";
+}
+
+export function isClaudeConfigured(): boolean {
+  return !!env.CLAUDE_API_KEY;
+}
 
 const OLLAMA_URL = env.OLLAMA_URL || "http://localhost:11434";
 const ARABIC_MODEL = env.OLLAMA_MODEL || "qwen2.5:7b";
@@ -72,7 +90,7 @@ async function ollamaGenerate(
 /**
  * Generate with Ollama (json mode), then optionally review/improve with Gemini.
  */
-type ProviderMode = "ollama" | "gemini" | "ollama+gemini";
+type ProviderMode = "ollama" | "gemini" | "ollama+gemini" | "claude" | "ollama+claude";
 
 async function ollamaFirstGeminiReview(
   ollamaPrompt: string,
@@ -81,6 +99,14 @@ async function ollamaFirstGeminiReview(
   jsonMode = true,
   mode: ProviderMode = "ollama+gemini",
 ): Promise<{ text: string; provider: string }> {
+
+  // === Claude-only mode ===
+  if (mode === "claude") {
+    if (!isClaudeConfigured()) throw new Error("Claude API key not configured");
+    logger.info("Using Claude Sonnet directly (claude mode)");
+    const text = await claudeGenerateText(ollamaPrompt);
+    return { text, provider: "claude" };
+  }
 
   // === Gemini-only mode ===
   if (mode === "gemini") {
@@ -108,6 +134,20 @@ async function ollamaFirstGeminiReview(
 
   // === Ollama-only mode (no Gemini review) ===
   if (mode === "ollama") {
+    return { text: ollamaText, provider: "ollama" };
+  }
+
+  // === Step 2: Claude reviews (ollama+claude mode) ===
+  if (mode === "ollama+claude") {
+    if (isClaudeConfigured()) {
+      try {
+        const claudeText = await claudeGenerateText(geminiReviewPrompt(ollamaText));
+        logger.debug("Claude review completed");
+        return { text: claudeText, provider: "ollama+claude" };
+      } catch (err: any) {
+        logger.warn({ error: err.message }, "Claude review failed — using Ollama output");
+      }
+    }
     return { text: ollamaText, provider: "ollama" };
   }
 

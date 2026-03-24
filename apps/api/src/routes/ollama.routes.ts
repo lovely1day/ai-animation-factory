@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { enhanceIdea, generateVariations, generateIdeas, generateScripts, regenerateScene } from "../controllers/ollama.controller";
+import { enhanceIdea, generateVariations, generateIdeas, generateScripts, regenerateScene, isClaudeConfigured } from "../controllers/ollama.controller";
 import { isGeminiConfigured } from "../config/gemini";
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
@@ -26,6 +26,12 @@ router.get("/status", async (req, res) => {
   const status: Record<string, any> = {
     configured_provider: env.AI_PROVIDER || "auto",
     providers: {},
+  };
+
+  // Check Claude
+  status.providers.claude = {
+    configured: isClaudeConfigured(),
+    model: "claude-sonnet-4-6",
   };
 
   // Check Gemini

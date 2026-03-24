@@ -227,9 +227,10 @@ export function IdeaGenerator() {
   const [loading, setLoading] = useState(false);
   const [step, setStepState] = useState<"input" | "compare" | "enhanced" | "genre" | "script" | "images" | "final">("genre");
   const [mounted, setMounted] = useState(false);
-  const [selectedProviders, setSelectedProviders] = useState<("gemini" | "ollama+gemini" | "ollama")[]>(["ollama"]);
+  const [selectedProviders, setSelectedProviders] = useState<("gemini" | "ollama+gemini" | "ollama" | "claude" | "ollama+claude")[]>(["claude"]);
   const [comparisonResults, setComparisonResults] = useState<{ provider: string; idea: EnhancedIdea }[]>([]);
   const [loadingProviders, setLoadingProviders] = useState<Record<string, boolean>>({});
+  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>({});
 
   // Update URL when step changes (client-side only)
   const setStep = (newStep: "input" | "compare" | "enhanced" | "genre" | "script" | "images" | "final") => {
@@ -286,6 +287,19 @@ export function IdeaGenerator() {
 
   useEffect(() => {
     setMounted(true);
+    // Check provider status
+    fetch(`${API_URL}/api/ollama/status`)
+      .then(r => r.json())
+      .then(d => {
+        setProviderStatus({
+          claude: d.providers?.claude?.configured || false,
+          gemini: d.providers?.gemini?.configured || false,
+          ollama: d.providers?.ollama?.running || false,
+          "ollama+gemini": (d.providers?.ollama?.running && d.providers?.gemini?.configured) || false,
+          "ollama+claude": (d.providers?.ollama?.running && d.providers?.claude?.configured) || false,
+        });
+      })
+      .catch(() => {});
   }, []);
 
   // Polling effect — polls ComfyUI directly
@@ -1026,7 +1040,9 @@ export function IdeaGenerator() {
             <p className="text-xs text-gray-500 text-center">{t("اختر مزود أو أكثر للمقارنة", "Select one or more providers to compare")}</p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {([
+                { value: "claude" as const,        icon: "🧠", label: "Claude",        color: "from-purple-600 to-violet-600" },
                 { value: "gemini" as const,        icon: "✨", label: "Gemini",        color: "from-blue-600 to-cyan-600" },
+                { value: "ollama+claude" as const, icon: "🔄", label: "Ollama+Claude", color: "from-violet-600 to-purple-600" },
                 { value: "ollama+gemini" as const, icon: "🔄", label: "Ollama+Gemini", color: "from-green-600 to-teal-600" },
                 { value: "ollama" as const,        icon: "🤖", label: "Ollama",        color: "from-orange-600 to-red-600" },
               ]).map((opt) => {
@@ -1038,12 +1054,16 @@ export function IdeaGenerator() {
                     onClick={() => setSelectedProviders(prev =>
                       isSelected ? prev.filter(p => p !== opt.value) : [...prev, opt.value]
                     )}
-                    className={`py-2 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                    className={`relative py-2 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
                       isSelected
                         ? `bg-gradient-to-r ${opt.color} text-white border-transparent shadow-lg`
                         : "text-gray-400 border-white/10 hover:border-white/30 hover:text-white"
                     }`}
                   >
+                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-900 ${
+                      providerStatus[opt.value] === true ? "bg-green-400" :
+                      providerStatus[opt.value] === false ? "bg-red-500" : "bg-gray-500"
+                    }`} />
                     {opt.icon} {opt.label}
                     {isSelected && <span className="ml-1">✓</span>}
                   </button>
