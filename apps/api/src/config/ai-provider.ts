@@ -362,7 +362,7 @@ async function generateWithClaude<T>(
   }
 
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-haiku-4-5',
+    model: options.model || 'claude-haiku-4-5-20251001',
     max_tokens: options.maxTokens ?? 4096,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -388,7 +388,7 @@ async function generateTextWithClaude(
   }
 
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-haiku-4-5',
+    model: options.model || 'claude-haiku-4-5-20251001',
     max_tokens: options.maxTokens ?? 4096,
     messages: [{ role: 'user', content: prompt }],
   });

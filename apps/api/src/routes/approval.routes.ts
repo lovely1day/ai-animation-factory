@@ -129,12 +129,56 @@ router.post('/episodes/:id/script', async (req, res) => {
         }
       }
 
-      logger.info({ episode_id: id }, 'Script approved — triggering image generation');
+      logger.info({ episode_id: id }, 'Script approved — triggering image generation (Pollinations.ai)');
 
-      // Persist approval first, then kick off image pipeline
+      // Persist approval, then move episode to images/processing
       updateData.updatedAt = new Date().toISOString();
+      updateData.workflow_step = 'images';
+      updateData.workflow_status = 'processing';
+      updateData.workflow_progress = 30;
       await supabase.from('episodes').update(updateData).eq('id', id);
-      await PipelineService.dispatchImages(id);
+
+      // Background: generate images via Pollinations.ai (no Redis needed)
+      (async () => {
+        try {
+          const { data: scenes } = await supabase
+            .from('scenes')
+            .select('id, scene_number, visual_prompt')
+            .eq('episode_id', id)
+            .order('scene_number');
+
+          if (!scenes || scenes.length === 0) {
+            logger.warn({ episode_id: id }, 'No scenes found for image generation');
+            return;
+          }
+
+          for (const scene of scenes) {
+            const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(scene.visual_prompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
+            await supabase.from('scenes').update({
+              image_url: imageUrl,
+              status: 'completed',
+              updated_at: new Date().toISOString(),
+            }).eq('id', scene.id);
+          }
+
+          await supabase.from('episodes').update({
+            workflow_step: 'images',
+            workflow_status: 'waiting_approval',
+            workflow_progress: 60,
+            updated_at: new Date().toISOString(),
+          }).eq('id', id);
+
+          logger.info({ episode_id: id, count: scenes.length }, 'Image URLs assigned via Pollinations.ai');
+        } catch (bgErr: any) {
+          logger.error({ error: bgErr.message, episode_id: id }, 'Background image generation failed');
+          await supabase.from('episodes').update({
+            workflow_status: 'failed',
+            updated_at: new Date().toISOString(),
+          }).eq('id', id);
+        }
+      })();
+
       return res.json({ success: true, message: 'Script approved and image generation started' });
     } else if (action === 'rejected') {
       updateData.workflow_status = 'rejected';

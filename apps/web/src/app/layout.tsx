@@ -5,6 +5,8 @@ import { LanguageProvider } from '@/contexts/language-context';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { FloatingLogoBackground } from '@/components/layout/FloatingLogoBackground';
+import JLAssistant from '@/components/JLAssistant';
+import { StatusBanner } from '@/components/layout/StatusBanner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -33,10 +35,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="relative z-10 flex flex-col min-h-screen">
             <AppHeader />
             <main className="flex-1 pt-16">
+              <div className="px-4 pt-2">
+                <StatusBanner project="factory" lang="ar" />
+              </div>
               {children}
             </main>
             <AppFooter />
           </div>
+          <JLAssistant project="factory" lang="ar" />
         </LanguageProvider>
       </body>
     </html>

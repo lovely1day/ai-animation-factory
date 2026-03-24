@@ -21,16 +21,39 @@ router.post("/idea", async (req, res) => {
       target_audience = "general",
       theme,
       ollamaModel = "mistral",   // mistral | llama3 | qwen2.5:7b
+      cloudProvider,             // claude | gemini | grok (overrides Ollama)
       skipReview = false,
     } = req.body;
 
-    logger.info({ genre, target_audience, ollamaModel }, "Direct idea generation requested");
+    logger.info({ genre, target_audience, ollamaModel, cloudProvider }, "Direct idea generation requested");
 
-    const idea = await ideaGeneratorService.generate(
-      { genre, target_audience, theme },
-      ollamaModel,
-      skipReview,
-    );
+    let idea: any;
+
+    if (cloudProvider) {
+      // Cloud-only mode — bypass Ollama entirely
+      const { generateJSON } = await import("../config/ai-provider");
+      const genreHints: Record<string, string> = {
+        adventure: 'exciting quest, exploration, brave heroes',
+        comedy: 'funny situations, humorous characters',
+        drama: 'emotional depth, character growth',
+        'sci-fi': 'futuristic technology, space, AI',
+        fantasy: 'magic, mythical creatures, enchanted worlds',
+        educational: 'learning, curiosity, science, history',
+      };
+      const prompt = `You are a creative director for an animated series. Generate an original ${genre} episode concept for ${target_audience}.${theme ? ` Theme: ${theme}.` : ''}
+Genre hints: ${genreHints[genre] || genre}
+Return ONLY valid JSON:
+{"title":"...","description":"2-3 sentence synopsis","genre":"${genre}","target_audience":"${target_audience}","theme":"core moral lesson","tags":["t1","t2","t3","t4","t5"]}`;
+
+      const result = await generateJSON<any>(prompt, { provider: cloudProvider as any, maxTokens: 512 });
+      idea = { ...result, engine: cloudProvider, reviewed: false };
+    } else {
+      idea = await ideaGeneratorService.generate(
+        { genre, target_audience, theme },
+        ollamaModel,
+        skipReview,
+      );
+    }
 
     return res.json({ success: true, data: idea });
   } catch (err: any) {

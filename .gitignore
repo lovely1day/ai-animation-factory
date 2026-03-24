@@ -41,3 +41,5 @@ project_tree.txt
 structure.txt
 prompt_engine.js
 query
+.vercel
+.env*.local

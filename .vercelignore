@@ -1,0 +1,15 @@
+node_modules
+ComfyUI
+ai_env
+.env
+*.log
+apps/api
+packages/database
+dist
+.next
+out
+coverage
+*.safetensors
+*.ckpt
+*.pt
+*.pth

@@ -111,23 +111,26 @@ export default function CreatePage() {
       .catch(() => {});
   };
 
-  // AI Idea Generator — per model
-  const handleGenerateIdea = async (ollamaModel: string) => {
-    setGeneratingModel(ollamaModel);
+  // AI Idea Generator — per model (Ollama or cloud)
+  const handleGenerateIdea = async (model: string, isCloud = false) => {
+    setGeneratingModel(model);
     setLastEngine(null);
     setError("");
     try {
+      const body = isCloud
+        ? { genre, target_audience: targetAudience, cloudProvider: model }
+        : { genre, target_audience: targetAudience, ollamaModel: model };
       const res = await fetch(`${API_URL}/api/generation/idea`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ genre, target_audience: targetAudience, ollamaModel }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "فشل التوليد");
       const generated = data.data;
       setTitle(generated.title || "");
       setIdea(generated.description || "");
-      setLastEngine(generated.engine || ollamaModel);
+      setLastEngine(generated.engine || model);
       refreshProviders();
     } catch (err: any) {
       setError(`خطأ في توليد الفكرة: ${err.message}`);
@@ -162,7 +165,7 @@ export default function CreatePage() {
           if (pollData.script_data && !editedScript) {
             setEditedScript(pollData.script_data);
           }
-          if (pollData.scenes?.length > 0 && editedScenes.length === 0) {
+          if (pollData.scenes?.length > 0) {
             setEditedScenes(pollData.scenes);
           }
         }
@@ -468,19 +471,20 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Ollama Model Buttons — كل زر = نموذج مختلف */}
+          {/* AI Model Buttons — كل زر = نموذج مختلف */}
           <div className="space-y-2">
             <p className="text-xs text-gray-500 text-center">اختر النموذج لتوليد الفكرة</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { model: "mistral",    label: "Mistral",   desc: "دقيق JSON",   color: "from-violet-600/80 to-purple-600/80 border-violet-500/30 hover:from-violet-500 hover:to-purple-500" },
-                { model: "llama3",     label: "LLaMA 3",   desc: "إبداعي",      color: "from-blue-600/80 to-cyan-600/80 border-blue-500/30 hover:from-blue-500 hover:to-cyan-500" },
-                { model: "qwen2.5:7b", label: "Qwen 2.5",  desc: "متوازن",      color: "from-emerald-600/80 to-teal-600/80 border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500" },
-              ].map(({ model, label, desc, color }) => (
+                { model: "mistral",    label: "Mistral",      desc: "دقيق JSON",   color: "from-violet-600/80 to-purple-600/80 border-violet-500/30 hover:from-violet-500 hover:to-purple-500",  isCloud: false },
+                { model: "llama3",     label: "LLaMA 3",      desc: "إبداعي",      color: "from-blue-600/80 to-cyan-600/80 border-blue-500/30 hover:from-blue-500 hover:to-cyan-500",             isCloud: false },
+                { model: "qwen2.5:7b", label: "Qwen 2.5",     desc: "متوازن",      color: "from-emerald-600/80 to-teal-600/80 border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500",    isCloud: false },
+                { model: "claude",     label: "Claude Haiku", desc: "سحابي ✦",     color: "from-amber-600/80 to-orange-600/80 border-amber-500/30 hover:from-amber-500 hover:to-orange-500",      isCloud: true  },
+              ].map(({ model, label, desc, color, isCloud }) => (
                 <button
                   key={model}
                   type="button"
-                  onClick={() => handleGenerateIdea(model)}
+                  onClick={() => handleGenerateIdea(model, isCloud)}
                   disabled={generatingModel !== null}
                   className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br ${color} disabled:opacity-40 border text-white py-3 px-2 rounded-xl transition-all`}
                 >
