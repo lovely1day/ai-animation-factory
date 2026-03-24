@@ -2243,7 +2243,7 @@ export function IdeaGenerator() {
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
             <button type="button"
-              onClick={() => window.open("http://localhost:8188", "_blank")}
+              onClick={() => window.open(COMFYUI_URL, "_blank")}
               className={btnPrimary}
             >
               <Wand2 className="w-5 h-5" />
