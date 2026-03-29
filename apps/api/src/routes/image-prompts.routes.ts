@@ -20,7 +20,7 @@ router.post("/comfyui/prompt", async (req: Request, res: Response) => {
     const data = await response.json();
     res.json(data);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -31,7 +31,7 @@ router.get("/comfyui/history/:promptId", async (req: Request, res: Response) => 
     const data = await response.json();
     res.json(data);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -44,7 +44,7 @@ router.get("/comfyui/view", async (req: Request, res: Response) => {
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

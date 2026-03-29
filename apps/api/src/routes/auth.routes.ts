@@ -66,8 +66,8 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       data: { token, user: { id: user.id, email: user.email, role: user.role, full_name: user.full_name } },
     });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Registration failed');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Registration failed');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -116,8 +116,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       data: { token, user: { id: user.id, email: user.email, role: user.role, full_name: user.full_name } },
     });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Login failed');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Login failed');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -139,7 +139,7 @@ authRouter.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 
     return res.json({ success: true, data: user });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -157,7 +157,7 @@ authRouter.post('/refresh', authenticate, async (req: AuthRequest, res: Response
 
     return res.json({ success: true, data: { token } });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -184,7 +184,7 @@ authRouter.patch('/me', authenticate, async (req: AuthRequest, res: Response) =>
 
     return res.json({ success: true, data: user });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -230,7 +230,7 @@ authRouter.post('/change-password', authenticate, async (req: AuthRequest, res: 
 
     return res.json({ success: true, message: 'Password changed successfully' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

@@ -66,10 +66,10 @@ export async function login(email: string, password: string) {
   if (!valid) throw new Error('Invalid credentials');
 
  const token = jwt.sign(
-  { userId: user.id, email: user.email },
+  { id: user.id, email: user.email, role: user.role },
   env.JWT_SECRET,
   { expiresIn: '7d' } as jwt.SignOptions
-); // âœ… Type assertion
+);
 
 
 

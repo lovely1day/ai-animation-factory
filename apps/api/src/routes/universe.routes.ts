@@ -35,8 +35,8 @@ router.post('/shows', async (req, res) => {
 
     return res.status(201).json({ success: true, data: project });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to create universe show');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to create universe show');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -72,8 +72,8 @@ router.get('/shows', async (req, res) => {
       pagination: { page: pageNum, limit: limitNum, total: count || 0 },
     });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to list universe shows');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to list universe shows');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -97,8 +97,8 @@ router.get('/shows/:id', async (req, res) => {
 
     return res.json({ success: true, data: project });
   } catch (err: any) {
-    logger.error({ error: err.message, project_id: req.params.id }, 'Failed to get universe show');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', project_id: req.params.id }, 'Failed to get universe show');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -130,8 +130,8 @@ router.patch('/shows/:id', async (req, res) => {
 
     return res.json({ success: true, data: project });
   } catch (err: any) {
-    logger.error({ error: err.message, project_id: req.params.id }, 'Failed to update universe show');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', project_id: req.params.id }, 'Failed to update universe show');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -188,8 +188,8 @@ router.post('/entities', async (req, res) => {
       data: { id: crypto.randomUUID(), type, name: name.trim(), description: description?.trim() || null },
     });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to create entity');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to create entity');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -219,8 +219,8 @@ router.get('/entities', async (req, res) => {
 
     return res.json({ success: true, data: entities });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to list entities');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to list entities');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -263,8 +263,8 @@ router.post('/link', async (req, res) => {
 
     return res.json({ success: true, data: link });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to link entity');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to link entity');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

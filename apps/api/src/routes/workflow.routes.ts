@@ -61,8 +61,8 @@ router.post("/approve/:episodeId", async (req, res) => {
       episode_id: episodeId,
     });
   } catch (err: any) {
-    logger.error({ error: err.message, episode_id: episodeId }, "Approval failed");
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', episode_id: episodeId }, "Approval failed");
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -118,8 +118,8 @@ router.post("/reject/:episodeId", async (req, res) => {
       episode_id: episodeId,
     });
   } catch (err: any) {
-    logger.error({ error: err.message, episode_id: episodeId }, "Rejection failed");
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', episode_id: episodeId }, "Rejection failed");
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -151,8 +151,8 @@ router.post("/run/:episodeId", async (req, res) => {
       episode_id: episodeId,
     });
   } catch (err: any) {
-    logger.error({ error: err.message, episode_id: episodeId }, "Pipeline start failed");
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', episode_id: episodeId }, "Pipeline start failed");
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

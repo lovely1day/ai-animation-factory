@@ -27,8 +27,8 @@ scenesRouter.get('/', async (req, res) => {
 
     return res.json({ success: true, data: scenes || [] });
   } catch (err: any) {
-    logger.error({ error: err.message }, 'Failed to fetch scenes');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error' }, 'Failed to fetch scenes');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -52,8 +52,8 @@ scenesRouter.get('/:id', async (req, res) => {
 
     return res.json({ success: true, data: scene });
   } catch (err: any) {
-    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to fetch scene');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', scene_id: req.params.id }, 'Failed to fetch scene');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -87,8 +87,8 @@ scenesRouter.patch('/:id', async (req, res) => {
 
     return res.json({ success: true, data: scene });
   } catch (err: any) {
-    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to update scene');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', scene_id: req.params.id }, 'Failed to update scene');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -148,8 +148,8 @@ scenesRouter.post('/:id/regenerate-image', async (req, res) => {
 
     return res.json({ success: true, data: { image_url: result.image_url, file_key: result.file_key } });
   } catch (err: any) {
-    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to regenerate scene image');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', scene_id: req.params.id }, 'Failed to regenerate scene image');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -194,8 +194,8 @@ scenesRouter.post('/:id/regenerate-voice', async (req, res) => {
 
     return res.json({ success: true, data: { voice_url: result.voice_url, duration_seconds: result.duration_seconds } });
   } catch (err: any) {
-    logger.error({ error: err.message, scene_id: req.params.id }, 'Failed to regenerate voice');
-    return res.status(500).json({ success: false, error: err.message });
+    logger.error({ error: 'Internal server error', scene_id: req.params.id }, 'Failed to regenerate voice');
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
