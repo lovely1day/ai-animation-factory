@@ -15,30 +15,60 @@ export interface BiLabel {
   en: string;
 }
 
-// ─── DNA SEGMENT KEYS (22 keys — مغلقة) ──────────────────────
+// ─── DNA SEGMENT KEYS (32 keys) ──────────────────────────────
 export type DNASegmentKey =
+  // Core
   | "G"    // Gender            M / F
+  // Face
   | "FS"   // Face Shape        FS001-FS007
   | "FH"   // Forehead          FH001-FH006
+  // Eyes
   | "ES"   // Eye Shape         ES001-ES007
   | "EZ"   // Eye Size          EZ001-EZ003
   | "EC"   // Eye Color         EC001-EC025
   | "EP"   // Iris Pattern      EP001-EP005
   | "EB"   // Eyebrow Shape     EB001-EB007
+  // Nose & Lips
   | "NS"   // Nose Shape        NS001-NS009
   | "NB"   // Nose Bridge       NB001-NB003
   | "LS"   // Lip Shape         LS001-LS008
+  // Jaw
   | "CH"   // Chin Shape        CH001-CH007
   | "JW"   // Jaw Type          JW001-JW006
   | "NK"   // Neck Type         NK001-NK006
+  // Hair
   | "HS"   // Hair Style        HS001-HS017
   | "HL"   // Hair Length       HL001-HL008
   | "HC"   // Hair Color        HC001-HC045
+  // Skin
   | "SK"   // Skin Tone         SK001-SK006  (Fitzpatrick I-VI)
   | "ST"   // Skin Undertone    ST001-ST004
+  // Body
   | "BD"   // Body Type         BD001-BD005
   | "HT"   // Height (cm)       numeric string "170"
-  | "ERA"; // Era               ERA_1920 etc.
+  // Era
+  | "ERA"  // Era               ERA_1920 etc.
+  // Gender-specific
+  | "GN"   // Gender detail     GN001-GN005
+  // Makeup
+  | "LK"   // Lipstick Style    LK001-LK006
+  | "LC"   // Lipstick Color    LC001-LC010
+  | "EK"   // Eye Shadow        EK001-EK008
+  | "EL"   // Eye Liner         EL001-EL006
+  | "BL"   // Blush             BL001-BL006
+  // Wardrobe
+  | "TS"   // Top Style         TS001-TS010
+  | "BS"   // Bottom Style      BS001-BS010
+  | "OS"   // Outfit Style      OS001-OS010
+  | "CC";  // Clothing Color    CC001-CC010
+
+// ─── LEGACY KEY ALIASES (feelthemusic.app used these) ────────
+// SU → ST (Skin Undertone), BT → BD (Body Type), IP → EP (Iris Pattern)
+export const DNA_KEY_ALIASES: Record<string, DNASegmentKey> = {
+  SU: "ST",
+  BT: "BD",
+  IP: "EP",
+};
 
 // ─── DNA OBJECT ───────────────────────────────────────────────
 export interface DNAObject {
@@ -191,17 +221,28 @@ export interface EraCatalogItem {
 // ─── CHARACTER BUILDER STATE (React hook) ─────────────────────
 export interface CharacterBuilderSegments {
   G?: GenderCode;
+  // Face
   FS?: Code; FH?: Code;
+  // Eyes
   ES?: Code; EZ?: Code; EC?: Code; EP?: Code; EB?: Code;
-  NS?: Code; NB?: Code;
-  LS?: Code;
-  CH?: Code;
-  JW?: Code;
-  NK?: Code;
+  // Nose & Lips
+  NS?: Code; NB?: Code; LS?: Code;
+  // Jaw
+  CH?: Code; JW?: Code; NK?: Code;
+  // Hair
   HS?: Code; HL?: Code; HC?: Code;
+  // Skin
   SK?: Code; ST?: Code;
+  // Body
   BD?: Code; HT?: string;
+  // Era
   ERA?: EraCode;
+  // Gender-specific
+  GN?: Code;
+  // Makeup
+  LK?: Code; LC?: Code; EK?: Code; EL?: Code; BL?: Code;
+  // Wardrobe
+  TS?: Code; BS?: Code; OS?: Code; CC?: Code;
   // Body gender-specific (not in DNA string — resolved separately)
   CHEST?: Code;   // male
   MUSCLE?: Code;  // male

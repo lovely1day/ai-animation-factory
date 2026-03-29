@@ -21,13 +21,14 @@ import type {
   CharacterBuilderSegments,
 } from "../types/character-room.types";
 
-// ─── CANONICAL KEY ORDER ───────────────────────────────────
-// Alphabetical — keeps DNA strings deterministic across builds
+import { DNA_KEY_ALIASES } from "../types/character-room.types";
+
+// ─── CANONICAL KEY ORDER (32 keys — alphabetical) ─────────
 const CANONICAL_ORDER: DNASegmentKey[] = [
-  "BD", "CH", "EB", "EC", "EP", "ERA",
-  "ES", "EZ", "FH", "FS", "G",  "HC",
-  "HL", "HS", "HT", "JW", "LS", "NB",
-  "NK", "NS", "SK", "ST",
+  "BD", "BL", "BS", "CC", "CH", "EB", "EC", "EK", "EL", "EP", "ERA",
+  "ES", "EZ", "FH", "FS", "G",  "GN", "HC",
+  "HL", "HS", "HT", "JW", "LC", "LK", "LS", "NB",
+  "NK", "NS", "OS", "SK", "ST", "TS",
 ];
 
 const ALL_KEYS = new Set<string>(CANONICAL_ORDER);
@@ -81,8 +82,11 @@ export function decodeDNA(raw: string): DNAObject | null {
     const key = part.slice(0, colonIdx);
     const value = part.slice(colonIdx + 1);
 
-    if (ALL_KEYS.has(key) && value.length > 0) {
-      segments[key as DNASegmentKey] = value;
+    // Resolve legacy key aliases (SU→ST, BT→BD, IP→EP)
+    const resolvedKey = DNA_KEY_ALIASES[key] || key;
+
+    if (ALL_KEYS.has(resolvedKey) && value.length > 0) {
+      segments[resolvedKey as DNASegmentKey] = value;
     }
   }
 
