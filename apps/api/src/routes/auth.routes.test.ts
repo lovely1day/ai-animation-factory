@@ -1,11 +1,10 @@
+import { describe, it, expect } from 'vitest';
 import { Router } from 'express';
-import type { Router as RouterType } from 'express';
 
-const authRouter: RouterType = Router();
-
-// Routes
-authRouter.get('/', (req, res) => {
-  res.json({ message: 'Auth routes' });
+describe('Auth Routes', () => {
+  it('creates a valid express router', () => {
+    const router = Router();
+    expect(router).toBeDefined();
+    expect(typeof router.get).toBe('function');
+  });
 });
-
-export { authRouter };

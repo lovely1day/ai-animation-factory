@@ -283,7 +283,14 @@ async function generateWithGemini<T>(
   });
 
   const text = result.response.text();
-  return JSON.parse(text) as T;
+  // Extract JSON block in case model prefixes with text
+  const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) ||
+                    text.match(/```([\s\S]*?)```/) ||
+                    [null, text];
+  const jsonStr = (jsonMatch[1] || text).trim();
+  // Find outermost JSON object or array
+  const objMatch = jsonStr.match(/\{[\s\S]*\}/) || jsonStr.match(/\[[\s\S]*\]/);
+  return JSON.parse(objMatch ? objMatch[0] : jsonStr) as T;
 }
 
 async function generateTextWithGemini(
@@ -362,7 +369,7 @@ async function generateWithClaude<T>(
   }
 
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-haiku-4-5-20251001',
+    model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -388,7 +395,7 @@ async function generateTextWithClaude(
   }
 
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-haiku-4-5-20251001',
+    model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
     messages: [{ role: 'user', content: prompt }],
   });

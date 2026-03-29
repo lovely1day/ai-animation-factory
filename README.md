@@ -1,145 +1,74 @@
 # AI Animation Factory
 
-An automated system that generates 50-100 short animated episodes per day using AI services.
+Automated AI animation pipeline that generates short animated episodes end-to-end — from idea to published video — using a multi-provider AI stack and BullMQ job queue.
 
-## Architecture
-
-```
-ai-animation-factory/
-├── apps/
-│   ├── web/          # Next.js 14 frontend (streaming + CMS dashboard)
-│   └── api/          # Express backend + BullMQ workers
-├── packages/
-│   ├── database/     # PostgreSQL schema & migrations
-│   └── shared/       # Shared TypeScript types & utilities
-└── docs/
-```
-
-## Tech Stack
+## Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 14, TailwindCSS, shadcn/ui, Framer Motion |
-| Backend | Node.js, Express, TypeScript |
-| Queue | BullMQ + Redis |
-| Database | Supabase (PostgreSQL) |
-| Storage | Cloudflare R2 / AWS S3 |
-| AI: Ideas & Scripts | OpenAI GPT-4o |
-| AI: Images | DALL-E 3 |
-| AI: Animation | Runway Gen-3 Turbo |
-| AI: Voice | ElevenLabs |
-| AI: Music | Mubert |
-| AI: Subtitles | OpenAI Whisper |
+| Monorepo | pnpm workspaces + Turborepo |
+| Frontend | Next.js 14 (App Router), TailwindCSS, shadcn/ui |
+| Backend | Express, TypeScript, BullMQ + Redis |
+| Database | Supabase (PostgreSQL + RLS on all tables) |
+| AI Text | Claude Sonnet, Gemini 2.5 Flash, Ollama (local) |
+| AI Images | ComfyUI (SDXL / FLUX) |
+| AI Voice | ElevenLabs |
+| AI Music | MusicGen (planned) |
 | Video | FFmpeg |
+| Deploy | Vercel (web) + Cloudflare Tunnel (API + ComfyUI) |
 
-## Generation Pipeline
+## Pipeline
 
 ```
-Idea (GPT-4) → Script (GPT-4) → Images (DALL-E 3) → Animations (Runway)
-                              → Voice (ElevenLabs)  ↗
-                              → Music (Mubert)      →  Assembly (FFmpeg) → Subtitles (Whisper)
-                              → Thumbnail (DALL-E)
+idea → script → [images x8 + music + thumbnail] (parallel) → animations → assembly → subtitles
 ```
+
+Each stage is a dedicated BullMQ worker. 9 workers total.
 
 ## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- pnpm 8+
-- Redis 7+
-- FFmpeg
-- Supabase project
-- API keys (see `.env.example`)
-
-### 1. Clone and Setup
 
 ```bash
 git clone <repo>
 cd ai-animation-factory
-cp .env.example .env
-# Fill in your API keys in .env
 pnpm install
+cp .env.example .env       # fill in all keys
+docker start redis          # Redis required for BullMQ
+pnpm dev                    # API → localhost:3001 | Web → localhost:3000
 ```
 
-### 2. Database Setup
+**Prerequisites:** Node.js 18+, pnpm 9+, Redis, FFmpeg, ComfyUI (optional), Ollama (optional)
 
-Create a Supabase project, then run:
-```sql
--- In Supabase SQL editor:
--- Copy and paste contents of packages/database/schema.sql
+## Project Structure
+
+```
+apps/api/              Express backend + BullMQ workers
+apps/web/              Next.js 14 frontend
+apps/character-studio/ Character DNA management UI
+packages/database/     PostgreSQL schema + migrations
+packages/shared/       Shared TypeScript types
+packages/prompts/      Shared AI prompt library (personas, compression, formatters)
 ```
 
-### 3. Start Redis
+## Deploy
 
 ```bash
-docker run -d -p 6379:6379 redis:7-alpine
+pnpm build
+npx vercel --prod
 ```
 
-### 4. Development
+- **Web:** Vercel at `ai-animation-factory-web.vercel.app`
+- **API:** Cloudflare Tunnel at `api.feelthemusic.app` → localhost:3001
+- **ComfyUI:** Cloudflare Tunnel at `comfyui.feelthemusic.app` → localhost:8188
+
+## Testing
 
 ```bash
-pnpm dev
+pnpm --filter @ai-animation-factory/api test
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:3001
-- API Health: http://localhost:3001/health
+## Security
 
-### 5. Start Workers
-
-```bash
-cd apps/api
-pnpm worker
-```
-
-### Docker Compose (Full Stack)
-
-```bash
-cp .env.example .env
-# Fill in API keys
-docker-compose up -d
-```
-
-## API Endpoints
-
-### Episodes
-- `GET /api/episodes` - List episodes
-- `GET /api/episodes/:id` - Get episode
-- `POST /api/episodes` - Create episode (auth required)
-- `PATCH /api/episodes/:id` - Update episode (auth required)
-- `DELETE /api/episodes/:id` - Delete episode (admin only)
-- `GET /api/episodes/:id/jobs` - Get generation jobs
-
-### Generation
-- `POST /api/generation/start` - Start episode generation
-- `GET /api/generation/queue` - Queue statistics
-- `GET /api/generation/active` - Active jobs
-- `POST /api/generation/retry/:queueName` - Retry failed jobs
-- `GET /api/generation/jobs` - All generation jobs
-- `POST /api/generation/clean` - Clean old queue jobs
-
-### Analytics
-- `GET /api/analytics/summary` - Overview stats
-- `GET /api/analytics/views-by-day` - Daily views
-- `GET /api/analytics/views-by-genre` - Views by genre
-- `POST /api/analytics/track` - Track event
-
-### Auth
-- `POST /api/auth/login` - Login
-
-## Environment Variables
-
-See [.env.example](.env.example) for all required variables.
-
-## Automation
-
-The scheduler runs automatically:
-- **Every hour**: Generates N new episodes (configurable)
-- **Every 30 min**: Retries failed jobs
-- **Daily 2 AM**: Cleans up old job records
-- **Every 5 min**: Updates view/like counts
-
-Configure via Supabase `scheduler_config` table.
+All routes (except `/health` and `/auth`) require authentication + rate limiting. RLS enabled on every table. See `CLAUDE.md` for full security rules.
 
 ## License
 

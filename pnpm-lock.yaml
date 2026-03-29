@@ -17,6 +17,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-animation-factory/prompts':
+        specifier: workspace:*
+        version: link:../../packages/prompts
       '@ai-animation-factory/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -145,6 +148,57 @@ importers:
         specifier: ^1.2.0
         version: 1.6.1(@types/node@20.19.37)(jsdom@25.0.1)
 
+  apps/character-studio:
+    dependencies:
+      '@ai-animation-factory/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
+      '@types/node':
+        specifier: ^20.19.37
+        version: 20.19.37
+      '@types/react':
+        specifier: ^18.3.28
+        version: 18.3.28
+      autoprefixer:
+        specifier: ^10.4.27
+        version: 10.4.27(postcss@8.5.8)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      framer-motion:
+        specifier: ^12.35.2
+        version: 12.36.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      lucide-react:
+        specifier: ^0.577.0
+        version: 0.577.0(react@18.3.1)
+      next:
+        specifier: 14.2.35
+        version: 14.2.35(@babel/core@7.29.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      postcss:
+        specifier: ^8.5.8
+        version: 8.5.8
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.0
+        version: 18.3.1(react@18.3.1)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.19(tsx@4.21.0)
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@3.4.19(tsx@4.21.0))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@ai-animation-factory/shared':
@@ -256,6 +310,15 @@ importers:
 
   packages/database: {}
 
+  packages/prompts:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.37
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   packages/shared:
     devDependencies:
       '@types/node':
@@ -273,6 +336,9 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@anthropic-ai/sdk@0.39.0':
+    resolution: {integrity: sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==}
 
   '@anthropic-ai/sdk@0.79.0':
     resolution: {integrity: sha512-ietmtM6glcnnrWq26H+BZm8J07iay9Cob6hRzDTr/A9QWF1m2T//TQhFO4MTKcZht2/7LS8bG9wUYEhcizKRnA==}
@@ -5015,6 +5081,18 @@ snapshots:
   '@adobe/css-tools@4.4.4': {}
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@anthropic-ai/sdk@0.39.0':
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
 
   '@anthropic-ai/sdk@0.79.0(zod@3.25.76)':
     dependencies:

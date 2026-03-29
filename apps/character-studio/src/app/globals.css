@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0f;
+  --glass: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: white;
+    font-family: 'Cairo', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 4px; }
+}
+
+@layer components {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+  }
+  .gradient-text {
+    background: linear-gradient(135deg, #a78bfa, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .btn-primary {
+    @apply px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all active:scale-95;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] text-white/70 hover:text-white text-sm transition-all;
+  }
+}

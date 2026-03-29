@@ -507,3 +507,18 @@ export async function runAllTests(): Promise<void> {
 if (require.main === module) {
   runAllTests().catch(console.error);
 }
+
+// ── Vitest wrapper ───────────────────────────────────────────────────────────
+import { describe, it, expect } from 'vitest';
+
+describe('Character System', () => {
+  it('registry: auto-creates on missing file', () => {
+    const result = testMissingRegistry();
+    expect(result.success).toBe(true);
+  });
+
+  it('validation: rejects character with missing name', () => {
+    const result = testValidationMissingName();
+    expect(result.success).toBe(true);
+  });
+});

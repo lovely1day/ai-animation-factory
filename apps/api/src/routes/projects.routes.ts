@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { safeErrorMessage } from '../middleware/error-handler';
 import { calculateWorkflowProgress } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
@@ -65,7 +66,7 @@ router.get('/', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to fetch projects');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -134,7 +135,7 @@ router.post('/', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to create project');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -183,7 +184,7 @@ router.get('/:id', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to fetch project');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -227,7 +228,7 @@ router.patch('/:id', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to update project');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -259,7 +260,7 @@ router.delete('/:id', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to delete project');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -314,7 +315,7 @@ router.get('/:id/episodes', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to fetch project episodes');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -410,7 +411,7 @@ router.post('/:id/episodes', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to create episode');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -477,7 +478,7 @@ router.get('/:id/stats', async (req, res) => {
     logger.error({ error: error.message, project_id: req.params.id }, 'Failed to fetch project stats');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });

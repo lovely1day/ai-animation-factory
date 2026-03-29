@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { safeErrorMessage } from '../middleware/error-handler';
 
 const router: Router = Router();
 
@@ -77,7 +78,7 @@ router.get('/summary', async (_req, res) => {
     logger.error({ error: error.message }, 'Analytics: summary error');
     res.json({
       success: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'Operation failed'),
       data: {
         total_episodes: 0,
         total_views: 0,
@@ -143,7 +144,7 @@ router.get('/views-by-day', async (req, res) => {
     logger.error({ error: error.message }, 'Analytics: views-by-day error');
     res.json({
       success: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'Operation failed'),
       data: [],
     });
   }
@@ -179,7 +180,7 @@ router.get('/views-by-genre', async (_req, res) => {
     logger.error({ error: error.message }, 'Analytics: views-by-genre error');
     res.json({
       success: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'Operation failed'),
       data: {},
     });
   }
@@ -209,19 +210,17 @@ router.post('/track', async (req, res) => {
       logger.error({ error: error.message }, 'Analytics: track error');
       return res.json({
         success: false,
-        error: error.message,
+        error: safeErrorMessage(error, 'Operation failed'),
       });
     }
 
     // Update episode view/like count
     if (event_type === 'view') {
-      await supabase.rpc('increment_episode_views', { episode_id }).catch((err) => {
-        logger.error({ error: err.message }, 'Analytics: failed to increment views');
-      });
+      const { error: rpcErr } = await supabase.rpc('increment_episode_views', { episode_id });
+      if (rpcErr) logger.error({ error: rpcErr.message }, 'Analytics: failed to increment views');
     } else if (event_type === 'like') {
-      await supabase.rpc('increment_episode_likes', { episode_id }).catch((err) => {
-        logger.error({ error: err.message }, 'Analytics: failed to increment likes');
-      });
+      const { error: rpcErr } = await supabase.rpc('increment_episode_likes', { episode_id });
+      if (rpcErr) logger.error({ error: rpcErr.message }, 'Analytics: failed to increment likes');
     }
 
     res.json({
@@ -232,7 +231,7 @@ router.post('/track', async (req, res) => {
     logger.error({ error: error.message }, 'Analytics: track error');
     res.json({
       success: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'Operation failed'),
     });
   }
 });

@@ -1,4 +1,19 @@
-﻿import { Request, Response, NextFunction } from 'express';
+﻿// ============================================================
+// SECURITY NOTICE — DO NOT MODIFY WITHOUT REVIEW
+// ============================================================
+// This file enforces production error safety:
+// - safeErrorMessage() hides internal details from users in production
+// - errorHandler() catches all unhandled errors safely
+// - AppError is for controlled, user-facing errors only
+//
+// RULES (from JL-PROJECT-STANDARDS.md):
+// - NEVER send error.message directly to client in production
+// - NEVER expose stack traces, SQL errors, or internal paths
+// - ALWAYS use safeErrorMessage() in route catch blocks
+// - ALWAYS log full error internally via logger
+// ============================================================
+
+import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 
 export class AppError extends Error {
@@ -47,4 +62,10 @@ export function notFound(req: Request, res: Response, _next: NextFunction) {
     success: false,
     error: `Route ${req.originalUrl} not found`
   });
+}
+
+export function safeErrorMessage(error: unknown, fallback: string): string {
+  if (process.env.NODE_ENV === 'production') return fallback;
+  if (error instanceof Error) return error.message;
+  return fallback;
 }

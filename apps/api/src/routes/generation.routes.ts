@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { safeErrorMessage } from '../middleware/error-handler';
 import { comfyUIService } from "../services/comfyui.service";
 import { ideaGeneratorService } from "../services/idea-generator.service";
 import { scriptWriterService } from "../services/script-writer.service";
@@ -58,7 +59,7 @@ Return ONLY valid JSON:
     return res.json({ success: true, data: idea });
   } catch (err: any) {
     logger.error({ error: err.message }, "Direct idea generation failed");
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -147,7 +148,7 @@ router.post("/script/:episodeId", async (req, res) => {
       }).eq("id", req.params.episodeId);
     }
 
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -179,7 +180,7 @@ router.get("/providers", async (_req, res) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -199,7 +200,7 @@ router.post("/test/:provider", async (req, res) => {
 
     return res.json({ success: true, provider, result });
   } catch (err: any) {
-    return res.status(500).json({ success: false, provider: req.params.provider, error: err.message });
+    return res.status(500).json({ success: false, provider: req.params.provider, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -269,7 +270,7 @@ router.post("/comfy", async (req, res) => {
     logger.error({ error: error.message }, "Generation failed");
     return res.status(500).json({
       success: false,
-      error: error.message || "Generation failed"
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -309,7 +310,7 @@ router.get("/status/:promptId", async (req, res) => {
     logger.error({ error: error.message }, "Status check failed");
     return res.status(500).json({
       success: false,
-      error: error.message || "Status check failed"
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });

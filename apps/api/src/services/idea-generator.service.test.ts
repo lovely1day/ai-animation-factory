@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IdeaGeneratorService } from './idea-generator.service'
 
-// Mock gemini config
-vi.mock('../config/gemini', () => ({
-  geminiJSON: vi.fn().mockImplementation(async () => ({
-    title: 'Space Adventure: The Lost Planet',
-    description: 'A brave astronaut discovers a mysterious planet.',
-    genre: 'adventure',
-    target_audience: 'children',
-    theme: 'discovery',
-    tags: ['space', 'adventure', 'kids', 'fun', 'exploration']
+// Mock hybrid-ai service
+vi.mock('./hybrid-ai.service', () => ({
+  hybridGenerateIdea: vi.fn().mockImplementation(async () => ({
+    result: {
+      title: 'Space Adventure: The Lost Planet',
+      description: 'A brave astronaut discovers a mysterious planet.',
+      genre: 'adventure',
+      target_audience: 'children',
+      theme: 'discovery',
+      tags: ['space', 'adventure', 'kids', 'fun', 'exploration'],
+    },
+    engine: 'mock',
+    reviewed: false,
   }))
 }))
 

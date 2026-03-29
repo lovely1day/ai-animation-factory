@@ -7,6 +7,8 @@
       "outputs": [
         "apps/web/.next/**",
         "apps/web/!.next/cache/**",
+        "apps/character-studio/.next/**",
+        "apps/character-studio/!.next/cache/**",
         "packages/**/dist/**"
       ]
     },

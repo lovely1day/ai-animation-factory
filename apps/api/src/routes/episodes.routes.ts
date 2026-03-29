@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { safeErrorMessage } from '../middleware/error-handler';
 import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
@@ -79,7 +80,7 @@ router.get('/', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to fetch episodes');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -122,7 +123,7 @@ router.get('/waiting-approval', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to fetch waiting approval episodes');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -196,7 +197,7 @@ router.get('/:id', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to fetch episode');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -309,7 +310,7 @@ router.post('/', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to create episode');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -350,7 +351,7 @@ router.patch('/:id', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to update episode');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -394,7 +395,7 @@ router.delete('/:id', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to delete episode');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -466,7 +467,7 @@ router.get('/:id/workflow', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to fetch workflow state');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -551,7 +552,7 @@ router.post('/:id/workflow/advance', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to advance workflow');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -643,7 +644,7 @@ router.post('/:id/start', async (req, res) => {
 
   } catch (err: any) {
     logger.error({ error: err.message, episode_id: req.params.id }, 'Failed to start pipeline');
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 

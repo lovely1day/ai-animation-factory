@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { safeErrorMessage } from '../middleware/error-handler';
 import { checkRedisHealth, redisConnection } from '../config/redis';
 
 const router: Router = Router();
@@ -68,7 +69,7 @@ router.get('/queue-stats', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to get queue stats');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -100,7 +101,7 @@ router.get('/:episodeId/status', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.episodeId }, 'Failed to get job status');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -132,7 +133,7 @@ router.post('/retry', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to retry jobs');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -163,7 +164,7 @@ router.post('/clean', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to clean jobs');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });

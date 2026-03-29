@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { safeErrorMessage } from '../middleware/error-handler';
 import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
@@ -33,7 +34,7 @@ router.get('/episodes/:id/logs', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to fetch approval logs');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -213,7 +214,7 @@ router.post('/episodes/:id/script', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to process script approval');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -360,7 +361,7 @@ router.post('/episodes/:id/images', async (req, res) => {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to process images approval');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -434,7 +435,7 @@ router.post('/episodes/:id/scenes/:sceneNumber/regenerate', async (req, res) => 
     logger.error({ error: error.message, episode_id: req.params.id, scene_number: req.params.sceneNumber }, 'Failed to regenerate scene');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });
@@ -482,7 +483,7 @@ router.get('/pending-count', async (req, res) => {
     logger.error({ error: error.message }, 'Failed to fetch pending count');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'Operation failed')
     });
   }
 });

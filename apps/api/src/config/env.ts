@@ -1,3 +1,10 @@
+// ============================================================
+// SECURITY: Critical secrets use required() — app won't start without them.
+// NEVER change required() back to optional() for: SUPABASE_URL,
+// SUPABASE_SERVICE_KEY, JWT_SECRET. See JL-PROJECT-STANDARDS.md
+// NEVER add fallback defaults for secrets (e.g., || "default-key")
+// ============================================================
+
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -19,8 +26,8 @@ export const env = {
   API_URL: optional('API_URL', 'http://localhost:3004'),
 
   // Supabase
-  SUPABASE_URL: optional('SUPABASE_URL', 'http://localhost:54321'),
-  SUPABASE_SERVICE_KEY: optional('SUPABASE_SERVICE_KEY', 'dev-key'),
+  SUPABASE_URL: required('SUPABASE_URL'),
+  SUPABASE_SERVICE_KEY: required('SUPABASE_SERVICE_KEY'),
 
   // Redis
   REDIS_HOST: optional('REDIS_HOST', 'localhost'),
@@ -50,8 +57,8 @@ export const env = {
   MUBERT_API_KEY: optional('MUBERT_API_KEY', ''),
   MUBERT_LICENSE: optional('MUBERT_LICENSE', ''),
 
-  // Auth (optional for development)
-  JWT_SECRET: optional('JWT_SECRET', 'dev-secret-key-for-testing-only-change-in-production'),
+  // Auth
+  JWT_SECRET: required('JWT_SECRET'),
   JWT_EXPIRY: optional('JWT_EXPIRY', '7d'),
 
   // ComfyUI

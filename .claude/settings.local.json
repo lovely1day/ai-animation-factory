@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops/public -name *.png -o -name *.svg -o -name *.webp)",
+      "Bash(python C:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/public/logo.png)",
+      "Bash(node -e \":*)",
+      "Bash(find C:/Users/asaid -name *.png -newer C:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/public/logo.png)",
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/src -name *.png -o -name *.svg)",
+      "Bash(find \"C:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops/src/app/\\(dashboard\\)\" -name \"*.tsx\")",
+      "Bash(find C:ALI_WORKSPACE01_PROJECTSfeelthemusic.app -name *.ts -path */functions/*)",
+      "Bash(find c:ALI_WORKSPACE01_PROJECTSfeelthemusic.appsrchooks -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(pnpm dev:*)",
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/src -name App.tsx -o -name router* -o -name routes*)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/hidden)",
+      "WebFetch(domain:sda.edu.sa)",
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops/src -name *.css)",
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops/src -name Landing* -o -name Home* -o -name App*)",
+      "Bash(find C:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops/src -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.sql \\\\\\))",
+      "Bash(find c:/ALI_WORKSPACE/01_PROJECTS/ai-animation-factory/apps/web/src -path *cms/characters* -o -path *cms*characters*)",
+      "Bash(Test-Path \"C:\\\\ALI_WORKSPACE\\\\🚀 START HERE\\\\START HERE.md\")",
+      "Bash(Test-Path \"C:\\\\Users\\\\asaid\\\\Desktop\\\\🚀 START HERE.lnk\")",
+      "Bash(pnpm install:*)",
+      "Bash(grep -rn \"portrait_url\\\\|portraitUrl\\\\|savePortrait\\\\|save.*portrait\\\\|portrait.*save\" c:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/src --include=*.ts --include=*.tsx -n)",
+      "Bash(grep -rn \"HF_TOKEN\\\\|HUGGING\\\\|hugging\" c:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app --include=*.ts --include=*.tsx --include=*.js -l)",
+      "Bash(grep -n \"preview_url\\\\|portrait\" c:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/supabase/migrations/*.sql)",
+      "Bash(head -20 grep -n \"url.*image\\\\|image.*url\\\\|mainResult\\\\|\\\\.url\\\\b\" c:/ALI_WORKSPACE/01_PROJECTS/feelthemusic.app/src/hooks/useMultiPortraitGenerator.ts)",
+      "Bash(find c:/ALI_WORKSPACE/01_PROJECTS/jackoleeno-ops -name *.json -not -path */node_modules/* -not -path */.next/*)",
+      "Bash(ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1emVrdm90aG1paGlsamVnbW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MDE3ODAsImV4cCI6MjA4Mzk3Nzc4MH0.LHBtTuwuAtrvx_hZMS0oXpc9sca0I3X2GZHw7bt0uuY\")",
+      "Bash(curl -s \"https://huzekvothmihiljegmor.supabase.co/functions/v1/ask-jl\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $ANON_KEY\")",
+      "Bash(curl -s \"https://huzekvothmihiljegmor.supabase.co/functions/v1/ask-jl\" -H \"apikey: $ANON_KEY\" -H \"Authorization: Bearer $ANON_KEY\" -H \"Content-Type: application/json\" -d '{\"\"message\"\":\"\"مرحبا! ما هي مشاريع JL الرئيسية؟\"\",\"\"lang\"\":\"\"ar\"\",\"\"project\"\":\"\"ops\"\",\"\"stream\"\":false}')",
+      "Bash(pnpm --filter @ai-animation-factory/api build)",
+      "Bash(pnpm --filter @ai-animation-factory/api test)",
+      "Bash(ls \"C:\\\\ALI_WORKSPACE\\\\01_PROJECTS\\\\jackoleeno-ops\\\\src\\\\app\\\\\\(dashboard\\)\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\asaid\\OneDrive",
+      "C:\\Users\\asaid\\Desktop\\🚀 بداية اليوم",
+      "C:\\ALI_WORKSPACE\\START HERE"
+    ]
+  }
+}

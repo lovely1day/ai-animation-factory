@@ -5,6 +5,7 @@
 // ============================================================
 
 import { Router, type Request, type Response } from "express";
+import { safeErrorMessage } from '../middleware/error-handler';
 import {
   isValidDNA,
   buildCharacterPrompt,
@@ -25,7 +26,7 @@ router.get("/", async (_req: Request, res: Response) => {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'Operation failed') });
     return;
   }
   res.json({ characters: data ?? [] });
@@ -83,7 +84,7 @@ router.post("/", async (req: Request, res: Response) => {
     .single();
 
   if (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'Operation failed') });
     return;
   }
   res.status(201).json({ character: data });
@@ -128,7 +129,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
     .single();
 
   if (error || !data) {
-    res.status(404).json({ error: error?.message ?? "Character not found" });
+    res.status(404).json({ error: error ? safeErrorMessage(error, 'Operation failed') : "Character not found" });
     return;
   }
   res.json({ character: data });
@@ -143,7 +144,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
     .eq("id", req.params.id);
 
   if (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'Operation failed') });
     return;
   }
   res.json({ success: true });
@@ -177,7 +178,7 @@ router.post("/preview", async (req: Request, res: Response) => {
     const prompt_id = await comfyUIService.submitWorkflow(workflow);
     res.json({ success: true, prompt_id });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "generation failed" });
+    res.status(500).json({ error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -194,7 +195,7 @@ router.get("/preview/:promptId", async (req: Request, res: Response) => {
       error:     result.error ?? null,
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "status check failed" });
+    res.status(500).json({ error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 
@@ -315,7 +316,7 @@ router.post("/auto-dress", async (req: Request, res: Response) => {
       reason: result.reason ?? "",
     });
   } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "auto-dress failed" });
+    res.status(500).json({ error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 

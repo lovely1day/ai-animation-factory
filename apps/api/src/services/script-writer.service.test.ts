@@ -1,34 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ScriptWriterService } from './script-writer.service'
 
-// Mock gemini config
-vi.mock('../config/gemini', () => ({
-  geminiJSON: vi.fn().mockImplementation(async () => ({
-    title: 'Space Adventure',
-    description: 'A space adventure',
-    genre: 'adventure',
-    target_audience: 'children',
-    tags: ['space', 'adventure'],
-    scenes: [
-      {
-        scene_number: 1,
-        title: 'Launch',
-        description: 'Rocket launches',
-        visual_prompt: 'Colorful rocket launching',
-        dialogue: 'NARRATOR: We are ready!',
-        narration: 'The rocket launches into space',
-        duration_seconds: 8
-      },
-      {
-        scene_number: 2,
-        title: 'Discovery',
-        description: 'Discover new planet',
-        visual_prompt: 'Beautiful planet',
-        dialogue: 'Wow!',
-        narration: 'A new world awaits',
-        duration_seconds: 8
-      }
-    ]
+// Mock hybrid-ai service
+vi.mock('./hybrid-ai.service', () => ({
+  hybridGenerateScript: vi.fn().mockImplementation(async () => ({
+    result: {
+      title: 'Space Adventure',
+      description: 'A space adventure',
+      genre: 'adventure',
+      target_audience: 'children',
+      tags: ['space', 'adventure'],
+      scenes: [
+        {
+          scene_number: 1,
+          title: 'Launch',
+          description: 'Rocket launches',
+          visual_prompt: 'Colorful rocket launching',
+          dialogue: 'NARRATOR: We are ready!',
+          narration: 'The rocket launches into space',
+          duration_seconds: 8
+        },
+        {
+          scene_number: 2,
+          title: 'Discovery',
+          description: 'Discover new planet',
+          visual_prompt: 'Beautiful planet',
+          dialogue: 'Wow!',
+          narration: 'A new world awaits',
+          duration_seconds: 8
+        }
+      ]
+    },
+    engine: 'mock',
+    reviewed: false,
   }))
 }))
 

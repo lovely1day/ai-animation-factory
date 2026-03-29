@@ -7,9 +7,8 @@
 import { useState, useEffect, useCallback } from "react";
 
 // Monitoring lives on the FTM Supabase instance (centralized health data)
-const MONITOR_URL  = "https://huzekvothmihiljegmor.supabase.co/rest/v1/system_status";
-const MONITOR_KEY  =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1emVrdm90aG1paGlsamVnbW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MDE3ODAsImV4cCI6MjA4Mzk3Nzc4MH0.LHBtTuwuAtrvx_hZMS0oXpc9sca0I3X2GZHw7bt0uuY";
+const MONITOR_URL  = process.env.NEXT_PUBLIC_MONITOR_URL || "https://huzekvothmihiljegmor.supabase.co/rest/v1/system_status";
+const MONITOR_KEY  = process.env.NEXT_PUBLIC_MONITOR_KEY || "";
 
 export type ServiceStatus = "ok" | "degraded" | "down" | "maintenance" | "unknown";
 
