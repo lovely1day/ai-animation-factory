@@ -46,3 +46,6 @@ query
 
 # Claude settings (may contain secrets)
 .claude/settings.json
+
+# Backups
+backups/
