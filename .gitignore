@@ -43,3 +43,6 @@ prompt_engine.js
 query
 .vercel
 .env*.local
+
+# Claude settings (may contain secrets)
+.claude/settings.json

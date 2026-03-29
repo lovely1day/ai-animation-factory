@@ -1,3 +1,10 @@
+// ============================================================
+// SECURITY: All routes (except /health and /auth) MUST have:
+//   1. authenticate middleware (JWT verification)
+//   2. Rate limiting (apiRateLimit or generationRateLimit)
+// DO NOT add unprotected routes. See JL-PROJECT-STANDARDS.md
+// ============================================================
+
 import express from 'express';
 
 import authRouter from './auth.routes';
@@ -11,19 +18,26 @@ import generationRoutes from './generation.routes';
 import jobsRoutes from './jobs.routes';
 import analyticsRoutes from './analytics.routes';
 import ollamaRoutes from './ollama.routes';
+import creativePipelineRoutes from './creative-pipeline.routes';
 import imagePromptsRoutes from './image-prompts.routes';
 import charactersRoutes from './characters.routes';
 import mockRoutes from './mock.routes';
+import { authenticate } from '../middleware/auth';
+import { apiRateLimit, authRateLimit, generationRateLimit } from '../middleware/rate-limit';
 
 const router: express.Router = express.Router();
 
-const isMockMode = process.env.MOCK_MODE === 'true';
-
-if (isMockMode) {
-  console.log('🎭 MOCK MODE ENABLED: Using in-memory data store');
+let isMockMode = process.env.MOCK_MODE === 'true';
+if (isMockMode && process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: MOCK_MODE is enabled in production — disabling it for safety');
+  isMockMode = false;
 }
 
-// Health check
+if (isMockMode) {
+  console.log('MOCK MODE ENABLED: Using in-memory data store');
+}
+
+// Health check — public, no auth needed
 router.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -34,24 +48,26 @@ router.get('/health', (_req, res) => {
   });
 });
 
-// Auth routes (always available, even in mock mode)
-router.use('/auth', authRouter);
+// Auth routes — rate-limited but no auth required
+router.use('/auth', authRateLimit, authRouter);
 
 if (isMockMode) {
   router.use(mockRoutes);
 } else {
-  router.use('/workflow', workflowRoutes);
-  router.use('/universe', universeRoutes);
-  router.use('/projects', projectsRoutes);
-  router.use('/episodes', episodesRoutes);
-  router.use('/scenes', scenesRouter);
-  router.use('/approval', approvalRoutes);
-  router.use('/generation', generationRoutes);
-  router.use('/jobs', jobsRoutes);
-  router.use('/analytics', analyticsRoutes);
-  router.use('/ollama', ollamaRoutes);
-  router.use('/image-prompts', imagePromptsRoutes);
-  router.use('/characters', charactersRoutes);
+  // All protected routes — require authentication + rate limiting
+  router.use('/workflow', apiRateLimit, authenticate, workflowRoutes);
+  router.use('/universe', apiRateLimit, authenticate, universeRoutes);
+  router.use('/projects', apiRateLimit, authenticate, projectsRoutes);
+  router.use('/episodes', apiRateLimit, authenticate, episodesRoutes);
+  router.use('/scenes', apiRateLimit, authenticate, scenesRouter);
+  router.use('/approval', apiRateLimit, authenticate, approvalRoutes);
+  router.use('/generation', generationRateLimit, authenticate, generationRoutes);
+  router.use('/jobs', apiRateLimit, authenticate, jobsRoutes);
+  router.use('/analytics', apiRateLimit, authenticate, analyticsRoutes);
+  router.use('/ollama', generationRateLimit, authenticate, ollamaRoutes);
+  router.use('/creative', generationRateLimit, authenticate, creativePipelineRoutes);
+  router.use('/image-prompts', apiRateLimit, authenticate, imagePromptsRoutes);
+  router.use('/characters', apiRateLimit, authenticate, charactersRoutes);
 }
 
 export default router;

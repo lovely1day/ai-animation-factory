@@ -123,7 +123,6 @@ Write the response in English as image generation prompts work best in English.`
     console.error("Error generating image prompts:", error);
     res.status(500).json({
       error: "Failed to generate image prompts",
-      details: error instanceof Error ? error.message : "Unknown error",
     });
   }
 }

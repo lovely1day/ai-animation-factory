@@ -504,7 +504,7 @@ export async function enhanceIdea(req: Request, res: Response) {
     return res.json({ success: true, provider, data: result });
   } catch (err: any) {
     logger.error({ error: err.message }, "enhanceIdea failed");
-    return res.status(500).json({ error: "Failed to enhance idea", details: err.message });
+    return res.status(500).json({ error: "Failed to enhance idea" });
   }
 }
 
@@ -542,7 +542,7 @@ export async function generateVariations(req: Request, res: Response) {
     return res.json({ success: true, provider, variations });
   } catch (err: any) {
     logger.error({ error: err.message }, "generateVariations failed");
-    return res.status(500).json({ error: "Failed to generate variations", details: err.message });
+    return res.status(500).json({ error: "Failed to generate variations" });
   }
 }
 
@@ -585,7 +585,7 @@ export async function generateIdeas(req: Request, res: Response) {
     return res.json({ success: true, originalIdea: idea, ideas: result.ideas || [], provider });
   } catch (err: any) {
     logger.error({ error: err.message }, "generateIdeas failed");
-    return res.status(500).json({ error: "Failed to generate ideas", details: err.message });
+    return res.status(500).json({ error: "Failed to generate ideas" });
   }
 }
 
@@ -697,7 +697,7 @@ export async function generateScripts(req: Request, res: Response) {
     });
   } catch (err: any) {
     logger.error({ error: err.message }, "generateScripts failed");
-    return res.status(500).json({ error: "Failed to generate scripts", details: err.message });
+    return res.status(500).json({ error: "Failed to generate scripts" });
   }
 }
 
@@ -723,7 +723,7 @@ export async function regenerateScene(req: Request, res: Response) {
     return res.json({ success: true, provider, scene: result });
   } catch (err: any) {
     logger.error({ error: err.message }, "regenerateScene failed");
-    return res.status(500).json({ error: "Failed to regenerate scene", details: err.message });
+    return res.status(500).json({ error: "Failed to regenerate scene" });
   }
 }
 
