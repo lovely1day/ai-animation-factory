@@ -6,19 +6,14 @@
     "types": "./dist/index.d.ts",
     "exports": {
         ".": {
+            "import": "./src/index.ts",
             "require": "./dist/index.js",
-            "import": "./dist/index.js",
-            "types": "./dist/index.d.ts"
+            "types": "./src/index.ts"
         },
         "./data/character": {
+            "import": "./src/data/character/index.ts",
             "require": "./dist/data/character/index.js",
-            "import": "./dist/data/character/index.js",
-            "types": "./dist/data/character/index.d.ts"
-        },
-        "./types/character-room.types": {
-            "require": "./dist/types/character-room.types.js",
-            "import": "./dist/types/character-room.types.js",
-            "types": "./dist/types/character-room.types.d.ts"
+            "types": "./src/data/character/index.ts"
         }
     },
     "scripts": {
