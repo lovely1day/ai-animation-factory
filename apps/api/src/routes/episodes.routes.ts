@@ -602,7 +602,7 @@ router.post('/:id/start', async (req, res) => {
             theme: episode.theme || episode.genre || 'adventure',
             tags: episode.tags || [],
           },
-          scene_count: episode.scene_count || 8,
+          scene_count: episode.scene_count || 6,
         });
 
         // Remove old scenes then insert new ones

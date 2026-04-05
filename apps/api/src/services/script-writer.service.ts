@@ -48,11 +48,13 @@ Rules:
 
     const context = `Title: ${idea.title}, Genre: ${idea.genre}, Audience: ${idea.target_audience}`;
 
+    // Use cloud-only in production (no Ollama on Railway), hybrid locally
+    const isProduction = process.env.NODE_ENV === 'production';
     const { result, engine, reviewed } = await hybridGenerateScript<EpisodeScript>(
       prompt,
       context,
       {
-        mode: 'hybrid',
+        mode: isProduction ? 'cloud-only' : 'hybrid',
         ollamaModel: 'mistral',
         skipReview: false,
       }
