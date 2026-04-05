@@ -10,7 +10,7 @@
  * All creative routes use this single engine.
  */
 
-import { generateJSON, generateText, getBestProvider, trackUsage, type AIProvider } from '../config/ai-provider';
+import { generateJSON, generateText, getBestProvider, trackUsage, listAvailableProviders, isProviderAvailable, type AIProvider } from '../config/ai-provider';
 import { extractJSON } from '@ai-animation-factory/prompts';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
@@ -255,4 +255,185 @@ export async function engineGenerateText(
   const text = await generateText(prompt, { provider, temperature, maxTokens });
   const usedProvider = provider === 'auto' ? getBestProvider() : provider;
   return { text, provider: usedProvider };
+}
+
+// ── Creative Council Mode ─────────────────────────────────────────────────────
+// All available providers generate independently → Claude judges & merges the best
+
+interface CouncilMember {
+  provider: string;
+  data: Record<string, unknown>;
+  durationMs: number;
+}
+
+interface CouncilResult<T> {
+  data: T;
+  engine: 'creative-council';
+  reviewed: true;
+  durationMs: number;
+  council: {
+    members: Array<{ provider: string; durationMs: number }>;
+    judge: string;
+    judgeDurationMs: number;
+  };
+}
+
+const COUNCIL_JUDGE_PROMPT = `أنت المنتج التنفيذي الأعلى — حكمك نهائي. أمامك عدة نسخ من نفس العمل الإبداعي، كل نسخة من كاتب مختلف.
+
+مهمتك:
+1. اقرأ كل النسخ بعناية
+2. حدد أقوى العناصر من كل نسخة:
+   - أفضل عنوان (الأكثر جذباً وأصالة)
+   - أعمق شخصيات (الأكثر تعقيداً وإنسانية)
+   - أقوى صراع (الأكثر إلحاحاً ومصداقية)
+   - أفضل حوارات (الأكثر طبيعية وعمقاً)
+   - أجمل وصف بصري (الأكثر سينمائية)
+3. ادمج أفضل العناصر في نسخة واحدة نهائية متماسكة
+4. النسخة النهائية يجب أن تكون أفضل من أي نسخة فردية
+
+القاعدة الذهبية: لا تختار نسخة كاملة — ابنِ تحفة من أفضل أجزاء الجميع.
+إذا كانت نسخة واحدة متفوقة بوضوح في كل شيء — استخدمها كأساس وعززها بلمسات من الباقي.
+
+أعد النتيجة كـ JSON بنفس البنية المطلوبة أصلاً. لا تضف حقول جديدة.`;
+
+/**
+ * Creative Council — All providers compete, Claude judges.
+ * Ollama + Cloud providers all generate independently,
+ * then Claude merges the best elements into one masterpiece.
+ */
+export async function engineCouncilGenerate<T>(
+  prompt: string,
+  options: EngineOptions = {},
+): Promise<CouncilResult<T>> {
+  const {
+    ollamaModel = 'qwen2.5:7b',
+    temperature = 0.9,
+    maxTokens = 4096,
+  } = options;
+
+  const start = Date.now();
+  const members: CouncilMember[] = [];
+
+  // ── Gather all available providers ──
+  const available = listAvailableProviders().filter((p: { provider: string }) => p.provider !== 'auto');
+  const ollamaOk = await isOllamaRunning();
+
+  // ── Launch all providers in parallel ──
+  const tasks: Array<Promise<void>> = [];
+
+  // Ollama (local)
+  if (ollamaOk) {
+    tasks.push(
+      (async () => {
+        const t = Date.now();
+        try {
+          logger.info({ model: ollamaModel }, 'Council: Ollama generating');
+          const raw = await ollamaGenerate(prompt, ollamaModel);
+          const parsed = extractJSON<Record<string, unknown>>(raw);
+          if (parsed) {
+            members.push({ provider: `ollama/${ollamaModel}`, data: parsed, durationMs: Date.now() - t });
+            trackUsage('ollama', true);
+          }
+        } catch (err: any) {
+          logger.warn({ err: err.message }, 'Council: Ollama failed — skipping');
+          trackUsage('ollama', false, err.message);
+        }
+      })()
+    );
+  }
+
+  // Cloud providers (exclude Claude — he's the judge)
+  for (const { provider } of available) {
+    if (provider === 'claude') continue; // Claude judges, doesn't compete
+    tasks.push(
+      (async () => {
+        const t = Date.now();
+        try {
+          logger.info({ provider }, 'Council: cloud provider generating');
+          const data = await cloudGenerateJSON<Record<string, unknown>>(prompt, {
+            provider,
+            temperature,
+            maxTokens,
+          });
+          members.push({ provider, data, durationMs: Date.now() - t });
+        } catch (err: any) {
+          logger.warn({ provider, err: err.message }, 'Council: cloud provider failed — skipping');
+        }
+      })()
+    );
+  }
+
+  await Promise.all(tasks);
+
+  // ── If no members succeeded, fall back to single provider ──
+  if (members.length === 0) {
+    logger.warn('Council: no members produced output — falling back to single provider');
+    return engineGenerateJSON<T>(prompt, { ...options, mode: 'cloud' }) as unknown as CouncilResult<T>;
+  }
+
+  // ── If only one member — no need to judge ──
+  if (members.length === 1) {
+    logger.info({ provider: members[0].provider }, 'Council: only one member — using directly');
+    return {
+      data: members[0].data as T,
+      engine: 'creative-council',
+      reviewed: true,
+      durationMs: Date.now() - start,
+      council: {
+        members: members.map(m => ({ provider: m.provider, durationMs: m.durationMs })),
+        judge: members[0].provider,
+        judgeDurationMs: 0,
+      },
+    };
+  }
+
+  // ── Claude judges all submissions ──
+  const judgeStart = Date.now();
+  const submissions = members.map((m, i) => `\n--- كاتب ${i + 1} (${m.provider}) ---\n${JSON.stringify(m.data, null, 2)}`).join('\n');
+
+  const judgePrompt = `${COUNCIL_JUDGE_PROMPT}
+
+${submissions}
+
+───────────────────────────────
+الطلب الأصلي الذي أنتج هذه النسخ:
+${prompt.slice(0, 1500)}
+───────────────────────────────
+
+أعد النسخة النهائية المدمجة كـ JSON فقط.`;
+
+  let finalData: T;
+  try {
+    // Use Claude as judge if available, otherwise best provider
+    const judgeProvider = isProviderAvailable('claude') ? 'claude' : getBestProvider();
+    finalData = await cloudGenerateJSON<T>(judgePrompt, {
+      provider: judgeProvider,
+      temperature: 0.7,
+      maxTokens: Math.max(maxTokens, 8192),
+    });
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Council: judge failed — using best member');
+    // Pick the first cloud provider's result (usually Grok = highest priority)
+    finalData = members[0].data as T;
+  }
+
+  const judgeDurationMs = Date.now() - judgeStart;
+
+  logger.info({
+    members: members.map(m => m.provider),
+    totalMs: Date.now() - start,
+    judgeDurationMs,
+  }, 'Council: complete');
+
+  return {
+    data: finalData,
+    engine: 'creative-council',
+    reviewed: true,
+    durationMs: Date.now() - start,
+    council: {
+      members: members.map(m => ({ provider: m.provider, durationMs: m.durationMs })),
+      judge: isProviderAvailable('claude') ? 'claude' : getBestProvider(),
+      judgeDurationMs,
+    },
+  };
 }
