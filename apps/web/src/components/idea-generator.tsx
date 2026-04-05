@@ -64,6 +64,12 @@ function buildComfyWorkflow(prompt: string, width = 896, height = 512, steps = 2
 // Route all ComfyUI calls through the backend API to avoid CORS
 const COMFYUI_PROXY = `${API_URL}/api/image-prompts/comfyui`;
 
+function buildPollinationsUrl(prompt: string, width = 896, height = 512): string {
+  const clean = prompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
+  const seed = Math.floor(Math.random() * 99999);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?width=${width}&height=${height}&model=flux&nologo=true&seed=${seed}`;
+}
+
 async function submitToComfyUI(prompt: string): Promise<string | null> {
   try {
     const workflow = buildComfyWorkflow(prompt);
@@ -72,23 +78,25 @@ async function submitToComfyUI(prompt: string): Promise<string | null> {
       headers: authHeaders(),
       body: JSON.stringify({ prompt: workflow }),
     });
-    if (!res.ok) return `mock-${Date.now()}`;
+    if (!res.ok) return `pollinations-${btoa(encodeURIComponent(prompt)).slice(0, 200)}`;
     const data = await res.json() as { prompt_id: string };
-    return data.prompt_id || `mock-${Date.now()}`;
+    return data.prompt_id || `pollinations-${btoa(encodeURIComponent(prompt)).slice(0, 200)}`;
   } catch {
-    return `mock-${Date.now()}`;
+    return `pollinations-${btoa(encodeURIComponent(prompt)).slice(0, 200)}`;
   }
 }
 
 async function pollComfyStatus(promptId: string): Promise<{ status: "pending" | "completed" | "failed"; imageUrl?: string }> {
-  // Mock mode for local GPU compatibility issues
-  if (promptId.startsWith("mock-")) {
-    await new Promise(r => setTimeout(r, 2000));
-    const seed = promptId.split("-")[1];
-    return {
-      status: "completed",
-      imageUrl: `https://picsum.photos/seed/${seed}/896/512`,
-    };
+  // Pollinations.ai fallback — generate real image from the prompt
+  if (promptId.startsWith("pollinations-")) {
+    const encoded = promptId.slice("pollinations-".length);
+    try {
+      const prompt = decodeURIComponent(atob(encoded));
+      const imageUrl = buildPollinationsUrl(prompt);
+      return { status: "completed", imageUrl };
+    } catch {
+      return { status: "completed", imageUrl: buildPollinationsUrl("animated cinematic scene, high quality, vibrant colors") };
+    }
   }
   try {
     const res = await fetch(`${COMFYUI_PROXY}/history/${promptId}`);
@@ -97,8 +105,8 @@ async function pollComfyStatus(promptId: string): Promise<{ status: "pending" | 
     const data = history[promptId];
     if (!data) return { status: "pending" };
     if (data.status?.status_str === "error") {
-      // GPU not compatible locally — return placeholder image
-      return { status: "completed", imageUrl: `https://picsum.photos/seed/${promptId.slice(0,8)}/896/512` };
+      // GPU error — use Pollinations.ai with a generic cinematic prompt
+      return { status: "completed", imageUrl: buildPollinationsUrl("animated cinematic scene, dramatic lighting, high quality") };
     }
     if (data.status?.completed) {
       for (const nodeId in data.outputs) {
@@ -109,8 +117,8 @@ async function pollComfyStatus(promptId: string): Promise<{ status: "pending" | 
           return { status: "completed", imageUrl: url };
         }
       }
-      // Completed but no images (GPU rendered nothing) — use placeholder
-      return { status: "completed", imageUrl: `https://picsum.photos/seed/${promptId.slice(0,8)}/896/512` };
+      // No images rendered — use Pollinations.ai
+      return { status: "completed", imageUrl: buildPollinationsUrl("animated cinematic scene, vibrant colors, high quality") };
     }
     return { status: "pending" };
   } catch {
@@ -909,7 +917,7 @@ export function IdeaGenerator() {
       [sceneId]: { ...prev[sceneId], status: "generating", imageUrl: null, approved: false },
     }));
 
-    const promptId = await submitToComfyUI(prompt || "animated scene, cinematic lighting, high quality");
+    const promptId = await submitToComfyUI(prompt || "animated cinematic scene, dramatic lighting, high quality, vibrant colors");
     if (promptId) {
       setSceneImages(prev => ({
         ...prev,
@@ -2154,12 +2162,41 @@ export function IdeaGenerator() {
                       )}
                     </div>
 
-                    {/* Dialogue snippet */}
-                    {scene.dialogue && (
-                      <div className="px-3 py-2 rounded-lg bg-black/30 border border-white/5">
-                        <p className="text-gray-300 text-xs leading-relaxed line-clamp-2 italic" dir="rtl">
-                          &quot;{scene.dialogue}&quot;
-                        </p>
+                    {/* Dialogue — editable */}
+                    {scene.dialogue !== undefined && (
+                      <div className="px-3 py-2 rounded-lg bg-black/30 border border-white/5 group/dialogue">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-gray-600">{t("الحوار", "Dialogue")}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const el = document.getElementById(`dialogue-${scene.id}`);
+                              if (el) { (el as HTMLTextAreaElement).focus(); }
+                            }}
+                            className="p-0.5 rounded text-gray-600 hover:text-purple-400 hover:bg-purple-500/10 transition-all opacity-0 group-hover/dialogue:opacity-100"
+                            title={t("تعديل الحوار", "Edit dialogue")}
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          id={`dialogue-${scene.id}`}
+                          title={t("الحوار", "Dialogue")}
+                          value={scene.dialogue || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setGeneratedScripts(scripts => scripts.map(script => ({
+                              ...script,
+                              scenes: script.scenes.map(s => s.id === scene.id ? { ...s, dialogue: val } : s),
+                            })));
+                            if (activeScript) {
+                              setActiveScript(prev => prev ? { ...prev, scenes: prev.scenes.map(s => s.id === scene.id ? { ...s, dialogue: val } : s) } : null);
+                            }
+                          }}
+                          rows={2}
+                          dir="rtl"
+                          className="w-full bg-transparent text-gray-300 text-xs leading-relaxed italic outline-none resize-none focus:text-white focus:ring-1 focus:ring-purple-500/30 rounded p-1 -m-1 transition-all"
+                        />
                       </div>
                     )}
 

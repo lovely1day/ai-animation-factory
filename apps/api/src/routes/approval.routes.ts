@@ -1,12 +1,20 @@
 import { Router } from 'express';
+import { Queue } from 'bullmq';
 import { supabase } from '../config/supabase';
+import { redisConnection } from '../config/redis';
 import { logger } from '../utils/logger';
 import { safeErrorMessage } from '../middleware/error-handler';
 import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
+import { scenePromptService } from '../services/scene-prompt.service';
 
 const router: Router = Router();
+
+// Production pipeline queues
+const voiceQueue = new Queue('voice-generation', { connection: redisConnection });
+const musicQueue = new Queue('music-generation', { connection: redisConnection });
+const animationQueue = new Queue('animation', { connection: redisConnection });
 
 /**
  * Get approval logs for an episode
@@ -126,12 +134,12 @@ router.post('/episodes/:id/script', async (req, res) => {
       updateData.workflow_progress = 30;
       await supabase.from('episodes').update(updateData).eq('id', id);
 
-      // Background: generate images via Pollinations.ai (no Redis needed)
+      // Background: enhance prompts + generate images via Pollinations.ai
       (async () => {
         try {
           const { data: scenes } = await supabase
             .from('scenes')
-            .select('id, scene_number, visual_prompt')
+            .select('id, scene_number, visual_prompt, description, dialogue, narration')
             .eq('episode_id', id)
             .order('scene_number');
 
@@ -140,14 +148,30 @@ router.post('/episodes/:id/script', async (req, res) => {
             return;
           }
 
+          const genre = episode.metadata?.genre || 'adventure';
+          const audience = episode.metadata?.target_audience || 'general';
+
           for (const scene of scenes) {
+            // Enhance prompt using ScenePromptService
+            const enhanced = await scenePromptService.enhance(
+              { scene_number: scene.scene_number, visual_prompt: scene.visual_prompt, title: '', description: scene.description || '', dialogue: scene.dialogue || '', narration: scene.narration || '', duration_seconds: 8 } as any,
+              genre,
+              audience
+            );
+
+            const finalPrompt = enhanced.visual_prompt;
+            const cleanPrompt = finalPrompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
             const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(scene.visual_prompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
+
             await supabase.from('scenes').update({
+              visual_prompt: finalPrompt,
               image_url: imageUrl,
               status: 'completed',
               updated_at: new Date().toISOString(),
             }).eq('id', scene.id);
+
+            logger.debug({ scene_number: scene.scene_number, enhanced: finalPrompt.slice(0, 80) }, 'Scene prompt enhanced');
           }
 
           await supabase.from('episodes').update({
@@ -157,7 +181,7 @@ router.post('/episodes/:id/script', async (req, res) => {
             updated_at: new Date().toISOString(),
           }).eq('id', id);
 
-          logger.info({ episode_id: id, count: scenes.length }, 'Image URLs assigned via Pollinations.ai');
+          logger.info({ episode_id: id, count: scenes.length }, 'Enhanced prompts + image URLs assigned via Pollinations.ai');
         } catch (bgErr: any) {
           logger.error({ error: bgErr.message, episode_id: id }, 'Background image generation failed');
           await supabase.from('episodes').update({
@@ -252,17 +276,80 @@ router.post('/episodes/:id/images', async (req, res) => {
     } catch {}
 
     if (action === 'approved') {
-      logger.info({ episode_id: id }, 'Images approved — marking as completed');
+      logger.info({ episode_id: id }, 'Images approved — starting production pipeline (voice + music + animation)');
 
+      // Move to production stage
       await supabase.from('episodes').update({
-        workflow_status: 'approved',
-        workflow_step: 'completed',
-        workflow_progress: 100,
-        status: 'completed',
+        workflow_status: 'processing',
+        workflow_step: 'production',
+        workflow_progress: 65,
         updated_at: new Date().toISOString(),
       }).eq('id', id);
 
-      return res.json({ success: true, message: 'Images approved — episode completed!' });
+      // Dispatch production jobs in background
+      (async () => {
+        try {
+          const { data: scenes } = await supabase
+            .from('scenes')
+            .select('id, scene_number, image_url, visual_prompt, dialogue, narration, duration_seconds')
+            .eq('episode_id', id)
+            .order('scene_number');
+
+          if (!scenes || scenes.length === 0) {
+            logger.warn({ episode_id: id }, 'No scenes found for production');
+            return;
+          }
+
+          const genre = episode.metadata?.genre || episode.genre || 'adventure';
+          const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_seconds || 8), 0);
+
+          // 1. Voice jobs — one per scene with dialogue/narration
+          for (const scene of scenes) {
+            const text = [scene.dialogue, scene.narration].filter(Boolean).join(' ');
+            if (text.trim()) {
+              await voiceQueue.add(`voice-scene-${scene.scene_number}`, {
+                episode_id: id,
+                scene_id: scene.id,
+                text,
+              });
+            }
+          }
+
+          // 2. Music job — one per episode
+          await musicQueue.add(`music-${id}`, {
+            episode_id: id,
+            genre,
+            mood: genre,
+            duration: totalDuration,
+          });
+
+          // 3. Animation jobs — one per scene (will auto-trigger assembly when all done)
+          for (const scene of scenes) {
+            await animationQueue.add(`animation-scene-${scene.scene_number}`, {
+              episode_id: id,
+              scene_id: scene.id,
+              scene_number: scene.scene_number,
+              image_url: scene.image_url,
+              prompt: scene.visual_prompt,
+              duration_seconds: scene.duration_seconds || 8,
+            });
+          }
+
+          logger.info({
+            episode_id: id,
+            voice_jobs: scenes.filter(s => s.dialogue || s.narration).length,
+            animation_jobs: scenes.length,
+          }, 'Production pipeline dispatched: voice + music + animation');
+        } catch (bgErr: any) {
+          logger.error({ error: bgErr.message, episode_id: id }, 'Production pipeline dispatch failed');
+          await supabase.from('episodes').update({
+            workflow_status: 'failed',
+            updated_at: new Date().toISOString(),
+          }).eq('id', id);
+        }
+      })();
+
+      return res.json({ success: true, message: 'Images approved — production pipeline started (voice + music + animation)' });
     } else if (action === 'rejected') {
       await supabase.from('episodes').update({
         workflow_status: 'rejected',

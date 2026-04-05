@@ -37,7 +37,7 @@ interface ProvidersData {
   total_calls: number;
 }
 
-type WorkflowStep = 'idea' | 'script' | 'images' | 'completed' | 'image_generation';
+type WorkflowStep = 'idea' | 'script' | 'images' | 'production' | 'completed' | 'image_generation';
 type WorkflowStatus = 'pending' | 'processing' | 'waiting_approval' | 'approved';
 type GenerationStatus = 'idle' | 'generating' | 'completed' | 'error';
 
@@ -219,7 +219,8 @@ export default function CreatePage() {
           if (wfStep === 'script' && wfStatus === 'waiting_approval') mappedStep = 'script';
           else if (wfStep === 'images' && (wfStatus === 'waiting_approval' || wfStatus === 'processing')) mappedStep = 'images';
           else if (wfStep === 'images' && wfStatus === 'processing') mappedStep = 'image_generation';
-          else if (['assembly', 'final'].includes(wfStep) || wfStatus === 'completed') mappedStep = 'completed';
+          else if (['production', 'assembly', 'subtitles'].includes(wfStep) && wfStatus === 'processing') mappedStep = 'production';
+          else if (wfStep === 'final' || wfStatus === 'completed' || (wfStep === 'completed' && wfStatus === 'approved')) mappedStep = 'completed';
 
           setCurrentStep(mappedStep);
 
@@ -343,7 +344,7 @@ export default function CreatePage() {
       }
 
       if (approved) {
-        setCurrentStep('completed');
+        setCurrentStep('production');
       }
     } catch (err: any) {
       setError(err.message);
@@ -410,10 +411,11 @@ export default function CreatePage() {
         { id: 'idea', label: 'الفكرة', icon: Sparkles },
         { id: 'script', label: 'السكربت', icon: FileText },
         { id: 'images', label: 'الصور', icon: ImageIcon },
+        { id: 'production', label: 'الإنتاج', icon: Film },
         { id: 'completed', label: 'مكتمل', icon: CheckCircle2 },
       ].map((step, index) => {
         const isActive = currentStep === step.id;
-        const isCompleted = ['script', 'images', 'completed'].indexOf(currentStep) > index;
+        const isCompleted = ['script', 'images', 'production', 'completed'].indexOf(currentStep) > index;
         const Icon = step.icon;
         
         return (
@@ -434,7 +436,7 @@ export default function CreatePage() {
               </motion.div>
               <span className="text-xs mt-2 text-gray-400">{step.label}</span>
             </div>
-            {index < 3 && (
+            {index < 4 && (
               <div className={`w-16 h-0.5 mx-2 ${isCompleted ? 'bg-green-500' : 'bg-white/10'}`} />
             )}
           </div>
@@ -846,7 +848,7 @@ export default function CreatePage() {
                     <img
                       src={scenes[activeSceneTab].image_url}
                       alt={`Scene ${scenes[activeSceneTab].scene_number}`}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                     <div className="absolute top-4 left-4 px-3 py-1 bg-green-500/20 backdrop-blur-md rounded-full text-green-300 text-sm border border-green-500/30">
                       تم الإنشاء
@@ -921,10 +923,25 @@ export default function CreatePage() {
                   </div>
                 </div>
 
-                {scenes[activeSceneTab].dialogue && (
+                {scenes[activeSceneTab].dialogue !== undefined && (
                   <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20">
-                    <label className="text-sm text-blue-400 mb-2 block">الحوار</label>
-                    <p className="text-gray-300">{scenes[activeSceneTab].dialogue}</p>
+                    <label className="text-sm text-blue-400 mb-2 block flex items-center gap-2">
+                      <Edit3 className="w-4 h-4" />
+                      تعديل الحوار
+                    </label>
+                    <textarea
+                      title="تعديل الحوار"
+                      value={scenes[activeSceneTab].dialogue || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const sceneNum = scenes[activeSceneTab].scene_number;
+                        setEditedScenes(prev => prev.map(s =>
+                          s.scene_number === sceneNum ? { ...s, dialogue: val } : s
+                        ));
+                      }}
+                      rows={2}
+                      className="w-full bg-black/20 rounded-lg p-3 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    />
                   </div>
                 )}
               </div>
@@ -964,8 +981,8 @@ export default function CreatePage() {
       <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
         <CheckCircle2 className="w-12 h-12 text-white" />
       </div>
-      <h2 className="text-3xl font-bold mb-4">اكتمل الإنشاء!</h2>
-      <p className="text-gray-400 mb-8">تم إنشاء الحلقة بنجاح مع الموافقة على جميع المراحل</p>
+      <h2 className="text-3xl font-bold mb-4">اكتمل الإنتاج!</h2>
+      <p className="text-gray-400 mb-8">تم إنشاء الفيديو بنجاح — صور + صوت + موسيقى + ترجمة</p>
       <div className="flex justify-center gap-4">
         <button
           onClick={() => window.location.href = `/episodes/${episodeId}`}
@@ -1016,6 +1033,37 @@ export default function CreatePage() {
           {currentStep === 'idea' && renderIdeaForm()}
           {currentStep === 'script' && renderScriptApproval()}
           {currentStep === 'images' && renderImagesApproval()}
+          {currentStep === 'production' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-20"
+            >
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Film className="w-12 h-12 text-white animate-pulse" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4">جاري الإنتاج...</h2>
+              <p className="text-gray-400 mb-6 max-w-lg mx-auto">
+                يتم الآن توليد الصوت والموسيقى التصويرية وتحريك المشاهد وتجميع الفيديو النهائي. هذه العملية قد تستغرق عدة دقائق.
+              </p>
+              <div className="flex justify-center gap-3 flex-wrap mb-8">
+                {['الصوت', 'الموسيقى', 'التحريك', 'التجميع', 'الترجمة'].map((stage) => (
+                  <span key={stage} className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-gray-400 text-sm flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                    {stage}
+                  </span>
+                ))}
+              </div>
+              <div className="w-full max-w-md mx-auto bg-white/5 rounded-full h-2 overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                  initial={{ width: '10%' }}
+                  animate={{ width: '90%' }}
+                  transition={{ duration: 120, ease: 'linear' }}
+                />
+              </div>
+            </motion.div>
+          )}
           {currentStep === 'completed' && renderCompleted()}
         </AnimatePresence>
       </div>

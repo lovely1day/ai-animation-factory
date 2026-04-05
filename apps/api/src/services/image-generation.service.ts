@@ -28,12 +28,23 @@ async function fetchImageBuffer(prompt: string, width = 1792, height = 1024): Pr
     // fall through to placeholder
   }
 
-  // Fallback: Picsum Photos (deterministic placeholder based on prompt hash)
-  const seed = parseInt(crypto.createHash('md5').update(prompt).digest('hex').slice(0, 8), 16) % 1000;
-  const picsumUrl = `https://picsum.photos/seed/${seed}/${width}/${height}`;
-  const res = await fetch(picsumUrl, { signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`Image fallback failed: ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+  // Fallback: retry Pollinations with simplified prompt
+  const simplified = clean.split(',').slice(0, 3).join(',').trim() || 'animated cinematic scene';
+  const retryUrl =
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(simplified)}` +
+    `?width=${width}&height=${height}&model=flux&nologo=true&seed=${(Date.now() + 1) % 99999}`;
+
+  try {
+    const retryRes = await fetch(retryUrl, { signal: AbortSignal.timeout(55_000) });
+    if (retryRes.ok) {
+      const retryBuf = Buffer.from(await retryRes.arrayBuffer());
+      if (retryBuf.length > 10_000) return retryBuf;
+    }
+  } catch {
+    // last resort
+  }
+
+  throw new Error('Image generation failed: Pollinations.ai unavailable');
 }
 
 export class ImageGenerationService {
