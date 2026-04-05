@@ -8,6 +8,7 @@ import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
 import { scenePromptService } from '../services/scene-prompt.service';
+import { injectCharacterIntoScene } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
 
@@ -151,6 +152,20 @@ router.post('/episodes/:id/script', async (req, res) => {
           const genre = episode.metadata?.genre || 'adventure';
           const audience = episode.metadata?.target_audience || 'general';
 
+          // Fetch characters linked to this project/episode for DNA injection
+          let characterDNA: string | null = null;
+          if (episode.project_id) {
+            const { data: chars } = await supabase
+              .from('characters')
+              .select('dna, name')
+              .eq('project_id', episode.project_id)
+              .limit(1);
+            if (chars && chars.length > 0 && chars[0].dna) {
+              characterDNA = chars[0].dna;
+              logger.info({ character: chars[0].name, episode_id: id }, 'Injecting character DNA into scene prompts');
+            }
+          }
+
           for (const scene of scenes) {
             // Enhance prompt using ScenePromptService
             const enhanced = await scenePromptService.enhance(
@@ -159,7 +174,11 @@ router.post('/episodes/:id/script', async (req, res) => {
               audience
             );
 
-            const finalPrompt = enhanced.visual_prompt;
+            // Inject character DNA if available
+            let finalPrompt = enhanced.visual_prompt;
+            if (characterDNA) {
+              finalPrompt = injectCharacterIntoScene(finalPrompt, characterDNA, 'foreground');
+            }
             const cleanPrompt = finalPrompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
             const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
             const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
@@ -249,7 +268,7 @@ router.post('/episodes/:id/images', async (req, res) => {
     // Get current episode
     const { data: episode, error: fetchError } = await supabase
       .from('episodes')
-      .select('workflow_step, workflow_status, metadata, genre')
+      .select('workflow_step, workflow_status, metadata, genre, project_id')
       .eq('id', id)
       .single();
 
