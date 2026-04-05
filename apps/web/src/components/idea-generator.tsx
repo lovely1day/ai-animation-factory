@@ -571,26 +571,27 @@ export function IdeaGenerator() {
       });
       if (!response.ok) throw new Error("Failed to generate script");
       const data = await response.json();
-      const rawCollections: any[] = data.collections || data.scripts || [];
-      const scripts: Script[] = rawCollections.map((collection: any, index: number) => {
-        const scriptVersion = Array.isArray(collection.scripts) ? collection.scripts[0] : collection;
-        return {
-          id: index + 1,
-          variationId: index + 1,
-          title: collection.workTitle || scriptVersion?.logline || enhancedIdea.title,
-          scenes: (scriptVersion?.scenes || []).map((s: any, i: number) => ({
-            id: i + 1,
-            number: s.sceneNumber || i + 1,
-            location: s.location || "موقع غير محدد",
-            time: s.timeOfDay || "غير محدد",
-            content: [s.action, s.dialogue].filter(Boolean).join(" — "),
-            dialogue: s.dialogue || "",
-            action: s.action || "",
-            imagePrompt: s.imagePrompt || "",
-          })),
-        };
-      });
-      setGeneratedScripts(scripts);
+
+      // API returns { data: { logline, scenes: [...] } }
+      const screenplay = data.data || data;
+      const scenes = screenplay.scenes || screenplay.collections?.[0]?.scripts?.[0]?.scenes || [];
+
+      const script: Script = {
+        id: 1,
+        variationId: 1,
+        title: screenplay.logline || enhancedIdea.title,
+        scenes: scenes.map((s: any, i: number) => ({
+          id: i + 1,
+          number: s.sceneNumber || i + 1,
+          location: s.location || "موقع غير محدد",
+          time: s.timeOfDay || "غير محدد",
+          content: [s.action, s.dialogue, s.subtext].filter(Boolean).join(" — "),
+          dialogue: s.dialogue || "",
+          action: s.action || "",
+          imagePrompt: s.imagePrompt || s.enhancedImagePrompt || "",
+        })),
+      };
+      setGeneratedScripts([script]);
       setStep("script");
     } catch (err) {
       console.error("generateScriptFromGenre error:", err);
