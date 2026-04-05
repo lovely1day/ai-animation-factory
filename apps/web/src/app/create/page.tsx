@@ -292,16 +292,28 @@ export default function CreatePage() {
 
   const handleApproveScript = async (approved: boolean) => {
     if (!episodeId) return;
-    
+
+    if (!approved) {
+      // Reject → restart pipeline (regenerate script)
+      setLoading(true);
+      setCurrentStep('idea');
+      setEditedScript(null);
+      setEditedScenes([]);
+      try {
+        await fetch(`${API_URL}/api/episodes/${episodeId}/start`, {
+          method: 'POST', headers: authHeaders(),
+        });
+      } catch {}
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/script`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({
-          action: approved ? 'approved' : 'rejected',
-          modifications: approved ? editedScript : undefined,
-        }),
+        body: JSON.stringify({ action: 'approved' }),
       });
 
       if (!res.ok) {
@@ -342,9 +354,9 @@ export default function CreatePage() {
 
   const handleRegenerateScene = async (sceneNumber: number) => {
     if (!episodeId) return;
-    
+
     setRegeneratingScenes(prev => new Set(prev).add(sceneNumber));
-    
+
     try {
       const scene = editedScenes.find(s => s.scene_number === sceneNumber);
       if (!scene) return;
@@ -355,13 +367,18 @@ export default function CreatePage() {
         body: JSON.stringify({ visual_prompt: scene.visual_prompt }),
       });
 
-      if (!res.ok) {
-        throw new Error("فشل في إعادة التوليد");
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error("فشل في إعادة التوليد");
+
+      // Update image in UI
+      if (data.data?.image_url) {
+        setEditedScenes(prev => prev.map(s =>
+          s.scene_number === sceneNumber ? { ...s, image_url: data.data.image_url } : s
+        ));
       }
-      
-      setRegeneratingScenes(prev => { const s = new Set(prev); s.delete(sceneNumber); return s; });
     } catch (err: any) {
       setError(err.message);
+    } finally {
       setRegeneratingScenes(prev => { const s = new Set(prev); s.delete(sceneNumber); return s; });
     }
   };
