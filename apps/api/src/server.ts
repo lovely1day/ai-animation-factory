@@ -67,11 +67,10 @@ app.listen(PORT, () => {
   scheduler.start();
 
   // Start BullMQ workers for production pipeline
-  try {
-    const { startAllWorkers } = require('./workers/index');
+  import('./workers/index').then(({ startAllWorkers }) => {
     startAllWorkers();
     logger.info("Production workers started (voice, music, animation, assembly, subtitle)");
-  } catch (err: any) {
-    logger.warn({ error: err.message }, "Workers not started — Redis may be unavailable");
-  }
+  }).catch((err) => {
+    logger.warn({ error: (err as Error).message }, "Workers not started — Redis may be unavailable");
+  });
 });
