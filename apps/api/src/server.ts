@@ -65,4 +65,13 @@ const PORT = parseInt(process.env.PORT ?? String(env.API_PORT), 10);
 app.listen(PORT, () => {
   logger.info({ port: PORT, env: env.NODE_ENV }, "API server started");
   scheduler.start();
+
+  // Start BullMQ workers for production pipeline
+  try {
+    const { startAllWorkers } = require('./workers/index');
+    startAllWorkers();
+    logger.info("Production workers started (voice, music, animation, assembly, subtitle)");
+  } catch (err: any) {
+    logger.warn({ error: err.message }, "Workers not started — Redis may be unavailable");
+  }
 });
