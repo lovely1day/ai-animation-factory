@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm --filter @ai-animation-factory/shared build && pnpm --filter @ai-animation-factory/api build"
+buildCommand = "(npm install -g pnpm@9 || true) && pnpm install --frozen-lockfile && pnpm --filter @ai-animation-factory/shared build && pnpm --filter @ai-animation-factory/prompts build && pnpm --filter @ai-animation-factory/api build"
 
 [deploy]
 startCommand = "node apps/api/dist/server.js"
