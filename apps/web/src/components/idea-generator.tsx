@@ -563,10 +563,11 @@ export function IdeaGenerator() {
         targetAge: enhancedIdea.targetAge,
       };
 
+      const storyText = `Title: ${enrichedIdea.title}\nConcept: ${enrichedIdea.concept}\nGenre: ${enrichedIdea.genre} ${enrichedIdea.secondaryGenres?.join(', ') || ''}\nTone: ${enrichedIdea.tone}\nAudience: ${enrichedIdea.audience}\nFormat: ${enrichedIdea.format}\nPlatform: ${enrichedIdea.platformStyle}`;
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ ideas: [enrichedIdea], provider: selectedProviders[0] || "gemini" }),
+        body: JSON.stringify({ story: storyText, sceneCount: 6, provider: selectedProviders[0] || "grok" }),
       });
       if (!response.ok) throw new Error("Failed to generate script");
       const data = await response.json();
@@ -671,10 +672,11 @@ export function IdeaGenerator() {
         };
       });
 
+      const storyForScript = ideas.map((i: any) => `Title: ${i.title}\nConcept: ${i.concept}\nGenre: ${i.genre}`).join('\n\n');
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ ideas, provider: selectedProviders[0] || "gemini" }),
+        body: JSON.stringify({ story: storyForScript, sceneCount: 6, provider: selectedProviders[0] || "grok" }),
       });
 
       if (!response.ok) throw new Error("Failed to generate scripts");
@@ -789,16 +791,11 @@ export function IdeaGenerator() {
       const scene = script?.scenes.find(s => s.id === sceneId);
       if (!scene || !enhancedIdea) return;
 
+      const sceneStory = `Rewrite this scene: Title: ${script?.title}, Scene ${scene.number} at ${scene.location} (${scene.time}), Genre: ${enhancedIdea.genre}`;
       const res = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({
-          scriptTitle: script?.title,
-          sceneNumber: scene.number,
-          location: scene.location,
-          time: scene.time,
-          genre: enhancedIdea.genre,
-        }),
+        body: JSON.stringify({ story: sceneStory, sceneCount: 1, provider: selectedProviders[0] || "grok" }),
       });
 
       if (res.ok) {
