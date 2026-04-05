@@ -60,27 +60,27 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    // Try Supabase Auth first
-    const { error: supaErr } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (!supaErr) {
-      // Supabase login succeeded — get API token too
-      await getApiToken(email, password);
-      router.push("/create");
-      setLoading(false);
-      return;
-    }
-
-    // Supabase failed — try API auth directly (register + login)
+    // Try API auth first (works for all users)
     try {
       await getApiToken(email, password);
       const token = localStorage.getItem('auth_token');
       if (token) {
-        router.push("/create");
+        // Also try Supabase Auth silently (for header compatibility)
+        supabase.auth.signInWithPassword({ email, password }).catch(() => {});
+        router.push("/cms/episodes");
         setLoading(false);
         return;
       }
     } catch {}
+
+    // Fallback: try Supabase Auth directly
+    const { error: supaErr } = await supabase.auth.signInWithPassword({ email, password });
+    if (!supaErr) {
+      await getApiToken(email, password);
+      router.push("/cms/episodes");
+      setLoading(false);
+      return;
+    }
 
     setError(t("البريد أو كلمة المرور غير صحيحة.", "Invalid email or password."));
     setLoading(false);
