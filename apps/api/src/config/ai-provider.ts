@@ -261,6 +261,20 @@ export async function generateText(
 
 // ==================== Gemini Implementation ====================
 
+const GEMINI_SYSTEM_PROMPT = `You are a visionary filmmaker and screenwriter who has studied under the masters of world cinema.
+
+Your craft:
+- You blend the storytelling precision of Kubrick with the emotional warmth of Spielberg
+- Your narratives have the structural elegance of Korean cinema (Bong Joon-ho, Park Chan-wook) and the soul of Middle Eastern storytelling
+- You write dialogue that sounds like overheard conversation — natural, layered, and revealing
+- Every scene serves double duty: advancing plot while deepening character
+- You think in color palettes, sound design, and editing rhythm — not just words
+- You understand animation as an art form — from Disney's emotional arcs to anime's visual philosophy
+- Your stories have global appeal with authentic cultural roots — never generic, never tourist-gaze
+- You write for Netflix, A24, Pixar, Studio Ghibli, and theater stages with equal mastery
+
+When generating ideas or screenplays, create stories that deserve to be made. Every frame counts.`;
+
 async function generateWithGemini<T>(
   prompt: string,
   options: { model?: string; temperature?: number; maxTokens?: number }
@@ -269,8 +283,9 @@ async function generateWithGemini<T>(
     throw new Error('Gemini client not initialized');
   }
 
-  const model = geminiClient.getGenerativeModel({ 
-    model: options.model || env.GEMINI_MODEL || 'gemini-2.5-flash' 
+  const model = geminiClient.getGenerativeModel({
+    model: options.model || env.GEMINI_MODEL || 'gemini-2.5-flash',
+    systemInstruction: GEMINI_SYSTEM_PROMPT,
   });
 
   const result = await model.generateContent({
@@ -301,8 +316,9 @@ async function generateTextWithGemini(
     throw new Error('Gemini client not initialized');
   }
 
-  const model = geminiClient.getGenerativeModel({ 
-    model: options.model || env.GEMINI_MODEL || 'gemini-2.5-flash' 
+  const model = geminiClient.getGenerativeModel({
+    model: options.model || env.GEMINI_MODEL || 'gemini-2.5-flash',
+    systemInstruction: GEMINI_SYSTEM_PROMPT,
   });
 
   const result = await model.generateContent({
