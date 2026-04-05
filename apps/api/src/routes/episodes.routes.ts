@@ -627,10 +627,10 @@ router.post('/:id/start', async (req, res) => {
         }
 
         await supabase.from('episodes').update({
-          script_data: script,
           workflow_step: 'script',
           workflow_status: 'waiting_approval',
           workflow_progress: 25,
+          metadata: { ...(episode.metadata as any || {}), script_data: script },
           updated_at: new Date().toISOString(),
         }).eq('id', id);
 
