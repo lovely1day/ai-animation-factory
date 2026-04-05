@@ -162,36 +162,36 @@ router.get('/:id', async (req, res) => {
       throw scenesError;
     }
 
-    // Get approval logs
-    const { data: approvalLogs, error: logsError } = await supabase
-      .from('approval_logs')
-      .select('*')
-      .eq('episode_id', id)
-      .order('created_at', { ascending: false });
+    // Get approval logs (table may not exist yet — skip gracefully)
+    let approvalLogs: any[] = [];
+    try {
+      const { data } = await supabase
+        .from('approval_logs')
+        .select('*')
+        .eq('episode_id', id)
+        .order('created_at', { ascending: false });
+      approvalLogs = data || [];
+    } catch {}
 
-    if (logsError) {
-      throw logsError;
-    }
-
-    // Get generation jobs
-    const { data: jobs, error: jobsError } = await supabase
-      .from('generation_jobs')
-      .select('*')
-      .eq('episode_id', id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (jobsError) {
-      throw jobsError;
-    }
+    // Get generation jobs (skip gracefully if table missing)
+    let jobs: any[] = [];
+    try {
+      const { data } = await supabase
+        .from('generation_jobs')
+        .select('*')
+        .eq('episode_id', id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      jobs = data || [];
+    } catch {}
 
     res.json({
       success: true,
       data: {
         ...episode,
         scenes: scenes || [],
-        approval_logs: approvalLogs || [],
-        recent_jobs: jobs || []
+        approval_logs: approvalLogs,
+        recent_jobs: jobs
       }
     });
   } catch (error: any) {
