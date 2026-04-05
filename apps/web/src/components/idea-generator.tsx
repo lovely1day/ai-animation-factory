@@ -258,7 +258,7 @@ export function IdeaGenerator() {
   const [loading, setLoading] = useState(false);
   const [step, setStepState] = useState<"input" | "compare" | "enhanced" | "genre" | "script" | "images" | "final">("genre");
   const [mounted, setMounted] = useState(false);
-  const [selectedProviders, setSelectedProviders] = useState<("gemini" | "ollama+gemini" | "ollama" | "claude" | "ollama+claude")[]>(["claude"]);
+  const [selectedProviders, setSelectedProviders] = useState<("grok" | "gemini" | "openai" | "ollama+gemini" | "ollama" | "claude" | "ollama+claude")[]>(["grok"]);
   const [comparisonResults, setComparisonResults] = useState<{ provider: string; idea: EnhancedIdea }[]>([]);
   const [loadingProviders, setLoadingProviders] = useState<Record<string, boolean>>({});
   const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>({});
@@ -327,8 +327,10 @@ export function IdeaGenerator() {
           const ollama = d.data?.ollama;
           const isEnabled = (id: string) => providers.find((p: any) => p.id === id)?.enabled || false;
           setProviderStatus({
+            grok: isEnabled('grok'),
             claude: isEnabled('claude'),
             gemini: isEnabled('gemini'),
+            openai: isEnabled('openai'),
             ollama: ollama?.running || false,
             "ollama+gemini": (ollama?.running && isEnabled('gemini')) || false,
             "ollama+claude": (ollama?.running && isEnabled('claude')) || false,
@@ -396,6 +398,7 @@ export function IdeaGenerator() {
 
   const enhanceIdea = async () => {
     if (!idea.trim()) return;
+    await ensureAuth();
     setLoading(true);
 
     // Multiple providers → comparison mode
@@ -474,6 +477,7 @@ export function IdeaGenerator() {
 
   const generateVariations = async () => {
     if (!enhancedIdea) return;
+    await ensureAuth();
     setLoading(true);
 
     const currentIdea = editingIdea
@@ -535,6 +539,7 @@ export function IdeaGenerator() {
 
   const generateScriptFromGenre = async () => {
     if (!selectedCoreGenre || !selectedTone || !selectedAudience || !selectedFormat || !selectedPlatform || !enhancedIdea) return;
+    await ensureAuth();
     setLoading(true);
     try {
       const coreLabel     = CORE_GENRES.find(g => g.id === selectedCoreGenre)?.label || selectedCoreGenre;
@@ -653,6 +658,7 @@ export function IdeaGenerator() {
   const generateScripts = async () => {
     if (selectedVariations.length === 0 || !enhancedIdea) return;
 
+    await ensureAuth();
     setLoading(true);
 
     try {
@@ -776,6 +782,7 @@ export function IdeaGenerator() {
   };
 
   const regenerateScene = async (scriptId: number, sceneId: number) => {
+    await ensureAuth();
     setLoading(true);
     try {
       const script = generatedScripts.find(s => s.id === scriptId);
@@ -1076,8 +1083,10 @@ export function IdeaGenerator() {
             <p className="text-xs text-gray-500 text-center">{t("اختر مزود أو أكثر للمقارنة", "Select one or more providers to compare")}</p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {([
+                { value: "grok" as const,           icon: "⚡", label: "Grok",          color: "from-red-600 to-rose-600" },
                 { value: "claude" as const,        icon: "🧠", label: "Claude",        color: "from-purple-600 to-violet-600" },
                 { value: "gemini" as const,        icon: "✨", label: "Gemini",        color: "from-blue-600 to-cyan-600" },
+                { value: "openai" as const,        icon: "🎬", label: "GPT-4o",        color: "from-green-600 to-emerald-600" },
                 { value: "ollama+claude" as const, icon: "🔄", label: "Ollama+Claude", color: "from-violet-600 to-purple-600" },
                 { value: "ollama+gemini" as const, icon: "🔄", label: "Ollama+Gemini", color: "from-green-600 to-teal-600" },
                 { value: "ollama" as const,        icon: "🤖", label: "Ollama",        color: "from-orange-600 to-red-600" },
