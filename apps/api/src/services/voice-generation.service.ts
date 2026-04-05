@@ -139,13 +139,34 @@ export class VoiceGenerationService {
       }
     } else {
       // ── Stage 2: ElevenLabs direct (cloud) ──
-      logger.warn('MediaVoice not running — using ElevenLabs directly');
-      buffer = await generateViaElevenLabs(
-        text,
-        input.voice_id || env.ELEVENLABS_DEFAULT_VOICE_ID,
-        env.ELEVENLABS_API_KEY
-      );
-      engine = 'elevenlabs';
+      const elevenLabsReady = env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.length > 10;
+      if (elevenLabsReady) {
+        logger.warn('MediaVoice not running — using ElevenLabs directly');
+        try {
+          buffer = await generateViaElevenLabs(
+            text,
+            input.voice_id || env.ELEVENLABS_DEFAULT_VOICE_ID,
+            env.ELEVENLABS_API_KEY
+          );
+          engine = 'elevenlabs';
+        } catch (err) {
+          logger.warn({ err }, 'ElevenLabs failed — skipping voice for this scene');
+          return {
+            voice_url: '',
+            file_key: `episodes/${input.episode_id}/scenes/${input.scene_id}/voice.mp3`,
+            duration_seconds: Math.max(1, Math.round(text.length / 15)),
+            engine: 'skipped',
+          };
+        }
+      } else {
+        logger.warn('No voice provider available — skipping voice generation');
+        return {
+          voice_url: '',
+          file_key: `episodes/${input.episode_id}/scenes/${input.scene_id}/voice.mp3`,
+          duration_seconds: Math.max(1, Math.round(text.length / 15)),
+          engine: 'skipped',
+        };
+      }
     }
 
     const fileKey = `episodes/${input.episode_id}/scenes/${input.scene_id}/voice.mp3`;
