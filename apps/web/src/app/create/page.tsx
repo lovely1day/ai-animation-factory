@@ -222,12 +222,22 @@ export default function CreatePage() {
           
           setCurrentStep(mappedStep);
           
-          // Initialize edited data
-          if (pollData.script_data && !editedScript) {
-            setEditedScript(pollData.script_data);
-          }
-          if (pollData.scenes?.length > 0) {
+          // Initialize edited data from scenes
+          if (pollData.scenes?.length > 0 && editedScenes.length === 0) {
             setEditedScenes(pollData.scenes);
+            // Build script object from scenes if not available
+            if (!editedScript) {
+              setEditedScript({
+                title: pollData.title || '',
+                description: pollData.description || pollData.idea || '',
+                scenes: pollData.scenes,
+              });
+            }
+          }
+          // Also try script_data from metadata
+          const scriptData = pollData.script_data || pollData.metadata?.script_data;
+          if (scriptData && !editedScript) {
+            setEditedScript(scriptData);
           }
         }
       } catch (err) {
