@@ -6,6 +6,7 @@ import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
 import { scriptWriterService } from '../services/script-writer.service';
+import { generateJSON } from '../config/ai-provider';
 import { WorkflowStep, WORKFLOW_STEP_DETAILS, calculateWorkflowProgress, getNextWorkflowStep } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
@@ -593,9 +594,10 @@ router.post('/:id/start', async (req, res) => {
     // Respond immediately — generation runs in background
     res.json({ success: true, message: 'Generating script...', episode_id: id });
 
-    // ── Background script generation (no Redis needed) ──
+    // ── Background script generation via Creative Council pipeline ──
     (async () => {
       try {
+        // Stage 1: Script Writer (cinematic shot-by-shot)
         const script = await scriptWriterService.write({
           episode_id: id,
           idea: {
@@ -609,6 +611,37 @@ router.post('/:id/start', async (req, res) => {
           scene_count: sceneCount,
         });
 
+        // Stage 2: Visual Director — enhance visual_prompts with cinematography
+        // (runs AI to add shot type, camera movement, lighting, color palette)
+        try {
+          const visualEnhancePrompt = `You are a Visual Director. Enhance these ${script.scenes.length} scene image prompts with precise cinematography.
+For each scene, improve the visual_prompt to include: exact shot type, camera angle, lens, lighting direction, color temperature, depth of field, film stock look.
+Keep the original scene content but make the visual_prompt more specific for AI image generation.
+
+Current scenes:
+${script.scenes.map((s: any) => `Scene ${s.scene_number}: ${s.visual_prompt}`).join('\n')}
+
+Return JSON array of enhanced prompts only:
+[{"scene_number": 1, "visual_prompt": "enhanced prompt here"}, ...]`;
+
+          const enhanced = await generateJSON<Array<{ scene_number: number; visual_prompt: string }>>(
+            visualEnhancePrompt,
+            { provider: 'auto' }
+          );
+
+          if (Array.isArray(enhanced)) {
+            for (const e of enhanced) {
+              const scene = script.scenes.find((s: any) => s.scene_number === e.scene_number);
+              if (scene && e.visual_prompt) {
+                scene.visual_prompt = e.visual_prompt;
+              }
+            }
+            logger.info({ episode_id: id, enhanced: enhanced.length }, 'Visual Director enhanced prompts');
+          }
+        } catch (vizErr: any) {
+          logger.warn({ error: vizErr.message }, 'Visual Director enhancement skipped — using original prompts');
+        }
+
         // Remove old scenes then insert new ones
         await supabase.from('scenes').delete().eq('episode_id', id);
 
@@ -621,7 +654,7 @@ router.post('/:id/start', async (req, res) => {
             visual_prompt: scene.visual_prompt,
             dialogue: scene.dialogue,
             narration: scene.narration,
-            duration_seconds: scene.duration_seconds || 8,
+            duration_seconds: scene.duration_seconds || 3,
             status: 'pending',
           });
         }
@@ -634,7 +667,7 @@ router.post('/:id/start', async (req, res) => {
           updated_at: new Date().toISOString(),
         }).eq('id', id);
 
-        logger.info({ episode_id: id, scenes: script.scenes.length }, 'Script generation complete');
+        logger.info({ episode_id: id, scenes: script.scenes.length }, 'Creative Council pipeline complete');
       } catch (bgErr: any) {
         logger.error({ error: bgErr.message, episode_id: id }, 'Background script generation failed');
         await supabase.from('episodes').update({
