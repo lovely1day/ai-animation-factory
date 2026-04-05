@@ -858,14 +858,45 @@ export default function CreatePage() {
                     className="w-full bg-black/20 rounded-lg p-3 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
                     rows={4}
                   />
-                  <button
-                    onClick={() => handleRegenerateScene(scenes[activeSceneTab].scene_number)}
-                    disabled={regeneratingScenes.has(scenes[activeSceneTab].scene_number)}
-                    className="mt-3 flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-sm transition-all"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${regeneratingScenes.has(scenes[activeSceneTab].scene_number) ? 'animate-spin' : ''}`} />
-                    إعادة إنشاء الصورة
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => handleRegenerateScene(scenes[activeSceneTab].scene_number)}
+                      disabled={regeneratingScenes.has(scenes[activeSceneTab].scene_number)}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-sm transition-all"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${regeneratingScenes.has(scenes[activeSceneTab].scene_number) ? 'animate-spin' : ''}`} />
+                      إعادة إنشاء
+                    </button>
+                    <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-all cursor-pointer">
+                      <ImageIcon className="w-4 h-4" />
+                      رفع صورة
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !episodeId) return;
+                          const reader = new FileReader();
+                          reader.onload = async () => {
+                            const dataUrl = reader.result as string;
+                            // Update locally
+                            const updated = [...editedScenes];
+                            const idx = updated.findIndex(s => s.scene_number === scenes[activeSceneTab].scene_number);
+                            if (idx >= 0) { updated[idx] = { ...updated[idx], image_url: dataUrl }; setEditedScenes(updated); }
+                            // Save to backend
+                            try {
+                              await fetch(`${API_URL}/api/approval/episodes/${episodeId}/scenes/${scenes[activeSceneTab].scene_number}/upload`, {
+                                method: 'POST', headers: authHeaders(),
+                                body: JSON.stringify({ image_url: dataUrl }),
+                              });
+                            } catch {}
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {scenes[activeSceneTab].dialogue && (
