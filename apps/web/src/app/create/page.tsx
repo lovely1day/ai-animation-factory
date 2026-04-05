@@ -97,7 +97,7 @@ export default function CreatePage() {
 
   // Load provider status on mount
   useEffect(() => {
-    fetch(`${API_URL}/api/generation/providers`)
+    fetch(`${API_URL}/api/idea/providers`)
       .then(r => r.json())
       .then(d => { if (d.success) setProviders(d.data); })
       .catch(() => {});
@@ -105,7 +105,7 @@ export default function CreatePage() {
 
   // Refresh providers after each generation
   const refreshProviders = () => {
-    fetch(`${API_URL}/api/generation/providers`)
+    fetch(`${API_URL}/api/idea/providers`)
       .then(r => r.json())
       .then(d => { if (d.success) setProviders(d.data); })
       .catch(() => {});
@@ -118,9 +118,9 @@ export default function CreatePage() {
     setError("");
     try {
       const body = isCloud
-        ? { genre, target_audience: targetAudience, cloudProvider: model }
-        : { genre, target_audience: targetAudience, ollamaModel: model };
-      const res = await fetch(`${API_URL}/api/generation/idea`, {
+        ? { genre, target_audience: targetAudience, mode: 'cloud' as const, provider: model }
+        : { genre, target_audience: targetAudience, mode: 'hybrid' as const, ollamaModel: model };
+      const res = await fetch(`${API_URL}/api/idea/quick`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -130,7 +130,7 @@ export default function CreatePage() {
       const generated = data.data;
       setTitle(generated.title || "");
       setIdea(generated.description || "");
-      setLastEngine(generated.engine || model);
+      setLastEngine(data.engine || model);
       refreshProviders();
     } catch (err: any) {
       setError(`خطأ في توليد الفكرة: ${err.message}`);

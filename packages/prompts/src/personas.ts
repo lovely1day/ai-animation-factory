@@ -76,10 +76,11 @@ Write ${sceneCount} scenes. Each scene must advance the THEME, not just the plot
 Scene arc: Setup → Escalation → Confrontation → Resolution
 
 RULES:
-- Dialogue in Arabic
-- Action descriptions in Arabic
-- imagePrompt (for AI image generation) in English — cinematic, detailed
-- Every scene must end with a reason to continue watching
+- Dialogue in Arabic — RICH and LAYERED: minimum 4-6 exchanges per scene, each character has a distinct voice
+- Every line of dialogue must carry subtext — what they MEAN is not what they SAY
+- Action descriptions in Arabic — vivid, cinematic, sensory details (sounds, smells, textures)
+- imagePrompt (for AI image generation) in English — cinematic, detailed, specific camera angle + lighting
+- Every scene must end with a hook — a question, a revelation, or a reversal that demands the next scene
 
 Return JSON:
 {

@@ -1,67 +1,11 @@
 import { Router } from "express";
 import { safeErrorMessage } from '../middleware/error-handler';
 import { comfyUIService } from "../services/comfyui.service";
-import { ideaGeneratorService } from "../services/idea-generator.service";
 import { scriptWriterService } from "../services/script-writer.service";
-import { listAvailableProviders, getProviderUsage, isProviderAvailable } from "../config/ai-provider";
-import { getOllamaStatus } from "../services/hybrid-ai.service";
 import { supabase } from "../config/supabase";
 import { logger } from "../utils/logger";
 
 const router: Router = Router();
-
-/**
- * Generate an episode idea using AI — NO Redis needed
- * POST /api/generation/idea
- * Body: { genre, target_audience, theme? }
- */
-router.post("/idea", async (req, res) => {
-  try {
-    const {
-      genre = "adventure",
-      target_audience = "general",
-      theme,
-      ollamaModel = "mistral",   // mistral | llama3 | qwen2.5:7b
-      cloudProvider,             // claude | gemini | grok (overrides Ollama)
-      skipReview = false,
-    } = req.body;
-
-    logger.info({ genre, target_audience, ollamaModel, cloudProvider }, "Direct idea generation requested");
-
-    let idea: any;
-
-    if (cloudProvider) {
-      // Cloud-only mode — bypass Ollama entirely
-      const { generateJSON } = await import("../config/ai-provider");
-      const genreHints: Record<string, string> = {
-        adventure: 'exciting quest, exploration, brave heroes',
-        comedy: 'funny situations, humorous characters',
-        drama: 'emotional depth, character growth',
-        'sci-fi': 'futuristic technology, space, AI',
-        fantasy: 'magic, mythical creatures, enchanted worlds',
-        educational: 'learning, curiosity, science, history',
-      };
-      const prompt = `You are a creative director for an animated series. Generate an original ${genre} episode concept for ${target_audience}.${theme ? ` Theme: ${theme}.` : ''}
-Genre hints: ${genreHints[genre] || genre}
-Return ONLY valid JSON:
-{"title":"...","description":"2-3 sentence synopsis","genre":"${genre}","target_audience":"${target_audience}","theme":"core moral lesson","tags":["t1","t2","t3","t4","t5"]}`;
-
-      const result = await generateJSON<any>(prompt, { provider: cloudProvider as any, maxTokens: 512 });
-      idea = { ...result, engine: cloudProvider, reviewed: false };
-    } else {
-      idea = await ideaGeneratorService.generate(
-        { genre, target_audience, theme },
-        ollamaModel,
-        skipReview,
-      );
-    }
-
-    return res.json({ success: true, data: idea });
-  } catch (err: any) {
-    logger.error({ error: err.message }, "Direct idea generation failed");
-    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
-  }
-});
 
 /**
  * Generate a script directly for an episode — NO Redis needed
@@ -149,58 +93,6 @@ router.post("/script/:episodeId", async (req, res) => {
     }
 
     return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
-  }
-});
-
-/**
- * Get AI provider status + usage counters
- * GET /api/generation/providers
- */
-router.get("/providers", async (_req, res) => {
-  try {
-    const available = listAvailableProviders();
-    const usage = getProviderUsage();
-    const ollamaStatus = await getOllamaStatus();
-
-    const providers = [
-      "gemini", "openai", "claude", "grok", "kimi"
-    ].map((p) => ({
-      id: p,
-      enabled: isProviderAvailable(p as any),
-      usage: usage[p] || { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
-    }));
-
-    return res.json({
-      success: true,
-      data: {
-        providers,
-        ollama: ollamaStatus,
-        best_provider: available[0]?.provider || null,
-        total_calls: Object.values(usage).reduce((s, u) => s + u.calls, 0),
-      },
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
-  }
-});
-
-/**
- * Test a specific provider with a simple prompt
- * POST /api/generation/test/:provider
- */
-router.post("/test/:provider", async (req, res) => {
-  try {
-    const { provider } = req.params;
-    const { generateJSON } = await import("../config/ai-provider");
-
-    const result = await generateJSON<{ ok: boolean; message: string }>(
-      `Reply with valid JSON: {"ok": true, "message": "Provider ${provider} is working"}`,
-      { provider: provider as any, maxTokens: 64 }
-    );
-
-    return res.json({ success: true, provider, result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, provider: req.params.provider, error: safeErrorMessage(err, 'Operation failed') });
   }
 });
 

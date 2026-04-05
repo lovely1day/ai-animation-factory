@@ -17,8 +17,7 @@ import approvalRoutes from './approval.routes';
 import generationRoutes from './generation.routes';
 import jobsRoutes from './jobs.routes';
 import analyticsRoutes from './analytics.routes';
-import ollamaRoutes from './ollama.routes';
-import creativePipelineRoutes from './creative-pipeline.routes';
+import ideaRoutes from './idea.routes';
 import imagePromptsRoutes from './image-prompts.routes';
 import charactersRoutes from './characters.routes';
 import mockRoutes from './mock.routes';
@@ -64,8 +63,7 @@ if (isMockMode) {
   router.use('/generation', generationRateLimit, authenticate, generationRoutes);
   router.use('/jobs', apiRateLimit, authenticate, jobsRoutes);
   router.use('/analytics', apiRateLimit, authenticate, analyticsRoutes);
-  router.use('/ollama', generationRateLimit, authenticate, ollamaRoutes);
-  router.use('/creative', generationRateLimit, authenticate, creativePipelineRoutes);
+  router.use('/idea', generationRateLimit, authenticate, ideaRoutes);
   router.use('/image-prompts', apiRateLimit, authenticate, imagePromptsRoutes);
   router.use('/characters', apiRateLimit, authenticate, charactersRoutes);
 }

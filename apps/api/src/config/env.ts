@@ -8,7 +8,10 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+// Monorepo root .env — deterministic path from apps/api/src/config/env.ts
+// Works regardless of process.cwd() or how the server is started
+const MONOREPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
+dotenv.config({ path: path.join(MONOREPO_ROOT, '.env') });
 
 function required(key: string): string {
   const value = process.env[key];

@@ -288,15 +288,18 @@ export function IdeaGenerator() {
   useEffect(() => {
     setMounted(true);
     // Check provider status
-    fetch(`${API_URL}/api/ollama/status`)
+    fetch(`${API_URL}/api/idea/providers`)
       .then(r => r.json())
       .then(d => {
+        const providers = d.data?.providers || [];
+        const ollama = d.data?.ollama;
+        const isEnabled = (id: string) => providers.find((p: any) => p.id === id)?.enabled || false;
         setProviderStatus({
-          claude: d.providers?.claude?.configured || false,
-          gemini: d.providers?.gemini?.configured || false,
-          ollama: d.providers?.ollama?.running || false,
-          "ollama+gemini": (d.providers?.ollama?.running && d.providers?.gemini?.configured) || false,
-          "ollama+claude": (d.providers?.ollama?.running && d.providers?.claude?.configured) || false,
+          claude: isEnabled('claude'),
+          gemini: isEnabled('gemini'),
+          ollama: ollama?.running || false,
+          "ollama+gemini": (ollama?.running && isEnabled('gemini')) || false,
+          "ollama+claude": (ollama?.running && isEnabled('claude')) || false,
         });
       })
       .catch(() => {});
@@ -374,7 +377,7 @@ export function IdeaGenerator() {
         try {
           const coreLabel = CORE_GENRES.find(g => g.id === selectedCoreGenre)?.label;
           const platformLabel = PLATFORM_STYLES.find(p => p.id === selectedPlatform)?.label;
-          const res = await fetch(`${API_URL}/api/ollama/enhance-idea`, {
+          const res = await fetch(`${API_URL}/api/idea/story`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idea, provider, genreHint: coreLabel, platformHint: platformLabel }),
@@ -398,7 +401,7 @@ export function IdeaGenerator() {
     try {
       const coreLabel = CORE_GENRES.find(g => g.id === selectedCoreGenre)?.label;
       const platformLabel = PLATFORM_STYLES.find(p => p.id === selectedPlatform)?.label;
-      const response = await fetch(`${API_URL}/api/ollama/enhance-idea`, {
+      const response = await fetch(`${API_URL}/api/idea/story`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idea, provider: selectedProviders[0] || "gemini", genreHint: coreLabel, platformHint: platformLabel }),
@@ -445,7 +448,7 @@ export function IdeaGenerator() {
       : enhancedIdea;
 
     try {
-      const response = await fetch(`${API_URL}/api/ollama/generate-variations`, {
+      const response = await fetch(`${API_URL}/api/idea/quick`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enhancedIdea: currentIdea, provider: selectedProviders[0] || "gemini" }),
@@ -522,7 +525,7 @@ export function IdeaGenerator() {
         targetAge: enhancedIdea.targetAge,
       };
 
-      const response = await fetch(`${API_URL}/api/ollama/generate-scripts`, {
+      const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ideas: [enrichedIdea], provider: selectedProviders[0] || "gemini" }),
@@ -629,7 +632,7 @@ export function IdeaGenerator() {
         };
       });
 
-      const response = await fetch(`${API_URL}/api/ollama/generate-scripts`, {
+      const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ideas, provider: selectedProviders[0] || "gemini" }),
@@ -746,7 +749,7 @@ export function IdeaGenerator() {
       const scene = script?.scenes.find(s => s.id === sceneId);
       if (!scene || !enhancedIdea) return;
 
-      const res = await fetch(`${API_URL}/api/ollama/regenerate-scene`, {
+      const res = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

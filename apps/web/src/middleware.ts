@@ -10,7 +10,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
-    pathname === "/"
+    pathname === "/" ||
+    pathname === "/unauthorized"
   ) {
     return NextResponse.next();
   }

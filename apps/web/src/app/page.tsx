@@ -141,15 +141,19 @@ export default function HomePage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [episodesRes, analyticsRes, queueRes] = await Promise.all([
-          fetch(`${API_URL}/api/episodes?limit=1`),
-          fetch(`${API_URL}/api/analytics/summary`),
-          fetch(`${API_URL}/api/jobs/queue-stats`),
-        ]);
+        const safeFetch = async (url: string) => {
+          try {
+            const r = await fetch(url);
+            if (!r.ok) return { success: false };
+            return r.json();
+          } catch { return { success: false }; }
+        };
 
-        const episodesData = await episodesRes.json();
-        const analyticsData = await analyticsRes.json();
-        const queueData = await queueRes.json();
+        const [episodesData, analyticsData, queueData] = await Promise.all([
+          safeFetch(`${API_URL}/api/episodes?limit=1`),
+          safeFetch(`${API_URL}/api/analytics/summary`),
+          safeFetch(`${API_URL}/api/jobs/queue-stats`),
+        ]);
 
         const queueActive = queueData.data?.reduce((s: number, q: any) => s + (q.active || 0), 0) || 0;
         const queueCompleted = queueData.data?.reduce((s: number, q: any) => s + (q.completed || 0), 0) || 0;

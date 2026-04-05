@@ -65,7 +65,7 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     priority: 2,
     supportsJson: true,
     supportsStreaming: true,
-    maxTokens: 8192,
+    maxTokens: 16384,
   },
   openai: {
     name: 'OpenAI',
