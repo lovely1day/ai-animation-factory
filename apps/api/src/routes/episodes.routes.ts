@@ -570,7 +570,7 @@ router.post('/:id/start', async (req, res) => {
 
     const { data: episode, error } = await supabase
       .from('episodes')
-      .select('id, title, description, idea, genre, target_audience, approval_steps, scene_count, theme, tags')
+      .select('id, title, description, idea, genre, target_audience, approval_steps, tags, metadata')
       .eq('id', id)
       .single();
 
@@ -578,6 +578,8 @@ router.post('/:id/start', async (req, res) => {
       logger.error({ error: error?.message, id }, 'Episode start: not found');
       return res.status(404).json({ success: false, error: 'Episode not found' });
     }
+
+    const sceneCount = (episode.metadata as any)?.generation_settings?.scene_count || 6;
 
     // Update status immediately so frontend shows loading
     await supabase.from('episodes').update({
@@ -601,10 +603,10 @@ router.post('/:id/start', async (req, res) => {
             description: episode.idea || episode.description || '',
             genre: episode.genre || 'adventure',
             target_audience: episode.target_audience || 'general',
-            theme: episode.theme || episode.genre || 'adventure',
+            theme: episode.genre || 'adventure',
             tags: episode.tags || [],
           },
-          scene_count: episode.scene_count || 6,
+          scene_count: sceneCount,
         });
 
         // Remove old scenes then insert new ones
@@ -626,7 +628,6 @@ router.post('/:id/start', async (req, res) => {
 
         await supabase.from('episodes').update({
           script_data: script,
-          scene_count: script.scenes.length,
           workflow_step: 'script',
           workflow_status: 'waiting_approval',
           workflow_progress: 25,
