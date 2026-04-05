@@ -86,7 +86,7 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
   grok: {
     name: 'xAI Grok',
     enabled: !!env.GROK_API_KEY,
-    priority: 4,
+    priority: 3,
     supportsJson: true,
     supportsStreaming: true,
     maxTokens: 4096,
@@ -318,6 +318,19 @@ async function generateTextWithGemini(
 
 // ==================== OpenAI Implementation ====================
 
+const OPENAI_SYSTEM_PROMPT = `You are an elite screenwriter and story architect with decades of experience in cinema, theater, and streaming platforms (Netflix, HBO, A24).
+
+Your craft:
+- You write stories with the emotional depth of Pixar, the tension of Nolan, and the visual poetry of Villeneuve
+- Every scene has subtext — nothing is on the nose
+- Dialogue is sharp, natural, and reveals character through conflict
+- You think in visual sequences — every moment is a shot, every transition is intentional
+- You understand 3-act structure, save-the-cat beats, and when to break the rules
+- You balance universal themes with culturally rich, specific details
+- Your stories work for global audiences while feeling intimate and personal
+
+When generating ideas or screenplays, bring your full cinematic vision. Make every word count.`;
+
 async function generateWithOpenAI<T>(
   prompt: string,
   options: { model?: string; temperature?: number; maxTokens?: number }
@@ -327,8 +340,11 @@ async function generateWithOpenAI<T>(
   }
 
   const response = await openaiClient.chat.completions.create({
-    model: options.model || 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
+    model: options.model || 'gpt-4o',
+    messages: [
+      { role: 'system', content: OPENAI_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
     response_format: { type: 'json_object' },
     temperature: options.temperature ?? 0.9,
     max_tokens: options.maxTokens ?? 4096,
@@ -349,8 +365,11 @@ async function generateTextWithOpenAI(
   }
 
   const response = await openaiClient.chat.completions.create({
-    model: options.model || 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
+    model: options.model || 'gpt-4o',
+    messages: [
+      { role: 'system', content: OPENAI_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
     temperature: options.temperature ?? 0.9,
     max_tokens: options.maxTokens ?? 4096,
   });
@@ -359,6 +378,19 @@ async function generateTextWithOpenAI(
 }
 
 // ==================== Claude Implementation ====================
+
+const CLAUDE_SYSTEM_PROMPT = `You are a master storyteller and screenwriter in the tradition of Studio Ghibli, Pixar, and auteur cinema.
+
+Your craft:
+- You write with emotional intelligence — every character has a wound, a want, and a way of hiding both
+- Your stories balance wonder with weight — magical worlds grounded in human truth
+- Dialogue serves character first, plot second — people speak from their contradictions
+- You structure narratives with invisible precision — the audience feels the rhythm without seeing the scaffolding
+- You excel at visual storytelling — show don't tell, metaphor through mise-en-scène
+- You write for all formats: animated series, cinema, theater, streaming platforms
+- Your work resonates across cultures while honoring specific traditions and voices
+
+When generating ideas or screenplays, craft stories that move people. Precision over decoration.`;
 
 async function generateWithClaude<T>(
   prompt: string,
@@ -371,6 +403,7 @@ async function generateWithClaude<T>(
   const response = await claudeClient.messages.create({
     model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
+    system: CLAUDE_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -397,6 +430,7 @@ async function generateTextWithClaude(
   const response = await claudeClient.messages.create({
     model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
+    system: CLAUDE_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -405,6 +439,19 @@ async function generateTextWithClaude(
 }
 
 // ==================== Grok Implementation ====================
+
+const GROK_SYSTEM_PROMPT = `You are a fearless storyteller and screenwriter — think Tarantino's dialogue, Miyazaki's worlds, and Sorkin's rhythm.
+
+Your craft:
+- You write stories that are bold, unpredictable, and emotionally honest
+- Your dialogue crackles with wit, tension, and subtext — characters talk like real people with agendas
+- You specialize in genre-bending narratives: mixing comedy with drama, horror with heart, sci-fi with philosophy
+- You think like a director — every scene has a visual hook, a turning point, and an emotional payoff
+- You understand pacing: when to breathe, when to punch, when to let silence do the work
+- Your stories have cultural texture — they feel specific to a place and time, not generic
+- You write for cinema, theater, Netflix, short films — adapting your style to the format
+
+When generating ideas or screenplays, be bold and original. No safe choices. Make it unforgettable.`;
 
 async function generateWithGrok<T>(
   prompt: string,
@@ -415,8 +462,11 @@ async function generateWithGrok<T>(
   }
 
   const response = await grokClient.chat.completions.create({
-    model: options.model || 'grok-2-1212',
-    messages: [{ role: 'user', content: prompt }],
+    model: options.model || 'grok-3-mini-fast',
+    messages: [
+      { role: 'system', content: GROK_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
     temperature: options.temperature ?? 0.9,
     max_tokens: options.maxTokens ?? 4096,
   });
@@ -425,10 +475,10 @@ async function generateWithGrok<T>(
   if (!content) throw new Error('Empty response from Grok');
 
   // Try to extract JSON
-  const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
-                    content.match(/```([\s\S]*?)```/) || 
+  const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
+                    content.match(/```([\s\S]*?)```/) ||
                     [null, content];
-  
+
   return JSON.parse(jsonMatch[1] || content) as T;
 }
 
@@ -441,8 +491,11 @@ async function generateTextWithGrok(
   }
 
   const response = await grokClient.chat.completions.create({
-    model: options.model || 'grok-2-1212',
-    messages: [{ role: 'user', content: prompt }],
+    model: options.model || 'grok-3-mini-fast',
+    messages: [
+      { role: 'system', content: GROK_SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
     temperature: options.temperature ?? 0.9,
     max_tokens: options.maxTokens ?? 4096,
   });
