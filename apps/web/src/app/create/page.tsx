@@ -951,11 +951,11 @@ export default function CreatePage() {
       <p className="text-gray-400 mb-8">تم إنشاء الحلقة بنجاح مع الموافقة على جميع المراحل</p>
       <div className="flex justify-center gap-4">
         <button
-          onClick={() => window.location.href = `/watch/${episodeId}`}
+          onClick={() => window.location.href = `/episodes/${episodeId}`}
           className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-3 px-6 rounded-xl transition-all"
         >
           <Play className="w-5 h-5" />
-          مشاهدة الحلقة
+          عرض الحلقة
         </button>
         <button
           onClick={() => window.location.reload()}
