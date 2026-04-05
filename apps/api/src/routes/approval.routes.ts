@@ -264,59 +264,16 @@ router.post('/episodes/:id/images', async (req, res) => {
 
       return res.json({ success: true, message: 'Images approved — episode completed!' });
     } else if (action === 'rejected') {
-      updateData.workflow_status = 'rejected';
-      
+      await supabase.from('episodes').update({
+        workflow_status: 'rejected',
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+
       logger.info({ episode_id: id }, 'Images rejected');
-    } else if (action === 'requested_changes') {
-      updateData.workflow_status = 'processing';
-      
-      // Regenerate specific scenes if provided
-      if (regenerate_scenes && Array.isArray(regenerate_scenes)) {
-        const { data: scenes } = await supabase
-          .from('scenes')
-          .select('*')
-          .eq('episode_id', id)
-          .in('scene_number', regenerate_scenes);
-
-        if (scenes) {
-          for (const scene of scenes) {
-            // Submit regeneration job
-            await comfyUIGenerationService.generateSceneImage({
-              episode_id: id,
-              scene_number: scene.scene_number,
-              visual_prompt: scene.visual_prompt,
-            });
-
-            // Update scene status
-            await supabase
-              .from('scenes')
-              .update({ status: 'pending' })
-              .eq('id', scene.id);
-          }
-        }
-      }
-      
-      logger.info({ episode_id: id, regenerate_scenes }, 'Image regeneration requested');
+      return res.json({ success: true, message: 'Images rejected' });
+    } else {
+      return res.json({ success: true, message: 'No action taken' });
     }
-
-    updateData.updatedAt = new Date().toISOString();
-
-    const { data: updated, error } = await supabase
-      .from('episodes')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    res.json({
-      success: true,
-      data: updated,
-      message: `Images ${action.replace('_', ' ')} successfully`
-    });
   } catch (error: any) {
     logger.error({ error: error.message, episode_id: req.params.id }, 'Failed to process images approval');
     res.status(500).json({
@@ -445,6 +402,40 @@ router.get('/pending-count', async (req, res) => {
       success: false,
       error: safeErrorMessage(error, 'Operation failed')
     });
+  }
+});
+
+/**
+ * Upload custom image for a scene
+ * POST /api/approval/episodes/:id/scenes/:sceneNumber/upload
+ * Body: { image_url: "https://..." } or base64 data
+ */
+router.post('/episodes/:id/scenes/:sceneNumber/upload', async (req, res) => {
+  try {
+    const { id, sceneNumber } = req.params;
+    const { image_url } = req.body;
+
+    if (!image_url) {
+      return res.status(400).json({ success: false, error: 'image_url is required' });
+    }
+
+    const { error } = await supabase
+      .from('scenes')
+      .update({
+        image_url,
+        status: 'completed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('episode_id', id)
+      .eq('scene_number', parseInt(sceneNumber));
+
+    if (error) throw error;
+
+    logger.info({ episode_id: id, scene_number: sceneNumber }, 'Custom image uploaded');
+    res.json({ success: true, message: 'Image updated' });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to upload scene image');
+    res.status(500).json({ success: false, error: 'Upload failed' });
   }
 });
 
