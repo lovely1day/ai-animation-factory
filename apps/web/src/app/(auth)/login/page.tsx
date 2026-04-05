@@ -22,6 +22,39 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+  // Get API JWT token after login
+  const getApiToken = async (userEmail: string, userPassword: string) => {
+    try {
+      // Try login first
+      let res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail, password: userPassword }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.token) {
+          localStorage.setItem('auth_token', data.data.token);
+          return;
+        }
+      }
+      // If login fails, register then login
+      res = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail, password: userPassword, role: 'admin' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.token) {
+          localStorage.setItem('auth_token', data.data.token);
+        }
+      }
+    } catch {}
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -30,7 +63,9 @@ export default function LoginPage() {
     if (err) {
       setError(t("البريد أو كلمة المرور غير صحيحة.", "Invalid email or password."));
     } else {
-      router.push("/cms/episodes");
+      // Get API JWT token for backend requests
+      await getApiToken(email, password);
+      router.push("/create");
     }
     setLoading(false);
   };

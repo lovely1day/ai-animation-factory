@@ -69,6 +69,41 @@ interface EpisodeData {
   canEdit: boolean;
 }
 
+// Auth helper — get JWT token, auto-login if needed
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth_token');
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token
+    ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+}
+
+async function ensureAuth(): Promise<string | null> {
+  const existing = getAuthToken();
+  if (existing) return existing;
+
+  // Auto-register/login as guest for idea generation
+  try {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "guest@factory.jl", password: "guest-access-2026" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data?.token) {
+        localStorage.setItem('auth_token', data.data.token);
+        return data.data.token;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export default function CreatePage() {
   // Form state
   const [title, setTitle] = useState("");
@@ -89,6 +124,15 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Load token from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('auth_token');
+    if (!stored) {
+      // Try to get token from login page cookie/redirect
+      ensureAuth();
+    }
+  }, []);
+
   // Approval state
   const [editedScript, setEditedScript] = useState<EpisodeData['data']['script'] | null>(null);
   const [editedScenes, setEditedScenes] = useState<Scene[]>([]);
@@ -97,7 +141,7 @@ export default function CreatePage() {
 
   // Load provider status on mount
   useEffect(() => {
-    fetch(`${API_URL}/api/idea/providers`)
+    fetch(`${API_URL}/api/idea/providers`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.success) setProviders(d.data); })
       .catch(() => {});
@@ -105,7 +149,7 @@ export default function CreatePage() {
 
   // Refresh providers after each generation
   const refreshProviders = () => {
-    fetch(`${API_URL}/api/idea/providers`)
+    fetch(`${API_URL}/api/idea/providers`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.success) setProviders(d.data); })
       .catch(() => {});
@@ -122,7 +166,7 @@ export default function CreatePage() {
         : { genre, target_audience: targetAudience, mode: 'hybrid' as const, ollamaModel: model };
       const res = await fetch(`${API_URL}/api/idea/quick`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -145,7 +189,7 @@ export default function CreatePage() {
     
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/episodes/${episodeId}`);
+        const res = await fetch(`${API_URL}/api/episodes/${episodeId}`, { headers: authHeaders() });
         const data = await res.json();
         
         if (data.success) {
@@ -189,7 +233,7 @@ export default function CreatePage() {
     try {
       const res = await fetch(`${API_URL}/api/episodes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           title,
           idea,
@@ -209,7 +253,7 @@ export default function CreatePage() {
       setCurrentStep('script');
 
       // Start pipeline (generates script directly without Redis)
-      fetch(`${API_URL}/api/episodes/${data.data.id}/start`, { method: 'POST' })
+      fetch(`${API_URL}/api/episodes/${data.data.id}/start`, { method: 'POST', headers: authHeaders() })
         .then(() => refreshProviders())
         .catch(() => {});
     } catch (err: any) {
@@ -226,7 +270,7 @@ export default function CreatePage() {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/script`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           action: approved ? 'approved' : 'rejected',
           modifications: approved ? editedScript : undefined,
@@ -250,7 +294,7 @@ export default function CreatePage() {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/images`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ action: approved ? 'approved' : 'rejected' }),
       });
 
@@ -275,7 +319,7 @@ export default function CreatePage() {
 
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/scenes/${sceneNumber}/regenerate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ visual_prompt: scene.visual_prompt }),
       });
 

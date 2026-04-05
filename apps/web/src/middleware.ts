@@ -3,25 +3,35 @@ import { NextRequest, NextResponse } from "next/server";
 const IFRAME_SECRET = process.env.IFRAME_SECRET ?? "ftm-studio-2026";
 const IFRAME_COOKIE = "iframe_auth";
 
+// Pages that require authentication (CMS/admin only)
+const PROTECTED_PATHS = ["/cms"];
+
 export function middleware(request: NextRequest) {
-  // Skip API routes, static files, and Next.js internals
   const { pathname } = request.nextUrl;
+
+  // Skip API routes, static files, Next.js internals
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon") ||
-    pathname === "/" ||
-    pathname === "/unauthorized"
+    pathname.startsWith("/favicon")
   ) {
     return NextResponse.next();
   }
 
-  // Check for token in URL (first visit from iframe)
+  // Public pages — always allow
+  // Home, login, create, episodes, projects, unauthorized
+  const isProtected = PROTECTED_PATHS.some(p => pathname.startsWith(p));
+  if (!isProtected) {
+    return NextResponse.next();
+  }
+
+  // Protected pages (CMS) — check auth
   const token = request.nextUrl.searchParams.get("token");
   const cookie = request.cookies.get(IFRAME_COOKIE);
+  const authCookie = request.cookies.get("auth_token");
 
+  // iframe auth (legacy)
   if (token === IFRAME_SECRET) {
-    // Valid token — set cookie and strip token from URL
     const url = request.nextUrl.clone();
     url.searchParams.delete("token");
     const response = NextResponse.redirect(url);
@@ -29,23 +39,23 @@ export function middleware(request: NextRequest) {
       httpOnly: true,
       sameSite: "none",
       secure: true,
-      maxAge: 60 * 60 * 8, // 8 hours
+      maxAge: 60 * 60 * 8,
     });
     return response;
   }
 
-  // Allow if cookie present
-  if (cookie?.value === "1") {
+  // Allow if any auth cookie present
+  if (cookie?.value === "1" || authCookie?.value) {
     return NextResponse.next();
   }
 
-  // In development, always allow
+  // Development — always allow
   if (process.env.NODE_ENV === "development") {
     return NextResponse.next();
   }
 
-  // Block with 401 page
-  return NextResponse.redirect(new URL("/unauthorized", request.url));
+  // Redirect to login
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 export const config = {
