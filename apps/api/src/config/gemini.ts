@@ -23,10 +23,10 @@ export function isGeminiConfigured(): boolean {
 }
 
 // Fallback model chain — if primary quota is hit, try next
-const FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-8b'];
+const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash-8b'];
 
 async function withFallback<T>(fn: (model: string) => Promise<T>, primaryModel?: string): Promise<T> {
-  const primary = primaryModel || env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const primary = primaryModel || env.GEMINI_MODEL || 'gemini-2.5-flash';
   const chain = [primary, ...FALLBACK_MODELS.filter(m => m !== primary)];
   let lastErr: unknown;
   for (const model of chain) {

@@ -70,7 +70,7 @@ async function callOpenAI(prompt: string, maxTokens = 4096): Promise<string> {
 
 async function callGemini(prompt: string): Promise<string> {
   if (!env.GEMINI_API_KEY) throw new Error('Gemini not configured');
-  const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
     {

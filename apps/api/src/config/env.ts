@@ -44,7 +44,7 @@ export const env = {
   // AI Services - Multi Provider Support
   // Primary: Gemini (Recommended)
   GEMINI_API_KEY: optional('GEMINI_API_KEY', ''),
-  GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.0-flash'),
+  GEMINI_MODEL: optional('GEMINI_MODEL', 'gemini-2.5-flash'),
   
   // Alternative Providers (Optional)
   OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
