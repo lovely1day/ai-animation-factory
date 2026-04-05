@@ -123,7 +123,7 @@ function StrandRow({ nodes, segments }: { nodes: NodeDef[]; segments: CharacterB
         />
         {/* Nodes */}
         {nodes.map((def) => (
-          <StrandNode key={def.key} def={def} value={segments[def.key] as string | undefined} />
+          <StrandNode key={String(def.key)} def={def} value={segments[def.key] as string | undefined} />
         ))}
       </div>
     </div>

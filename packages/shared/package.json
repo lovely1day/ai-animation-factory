@@ -14,6 +14,11 @@
             "import": "./src/data/character/index.ts",
             "require": "./dist/data/character/index.js",
             "types": "./src/data/character/index.ts"
+        },
+        "./types/character-room.types": {
+            "import": "./src/types/character-room.types.ts",
+            "require": "./dist/types/character-room.types.js",
+            "types": "./src/types/character-room.types.ts"
         }
     },
     "scripts": {
