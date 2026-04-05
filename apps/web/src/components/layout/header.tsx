@@ -113,23 +113,38 @@ export default function AppHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auth state — check Supabase Auth first, then API JWT fallback
+  // Auth state — check Supabase Auth + API JWT
   useEffect(() => {
+    function checkJwtFallback() {
+      if (typeof window === 'undefined') return;
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return;
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) return; // expired
+        setUser({ email: payload.email, id: payload.id, user_metadata: { full_name: payload.email?.split('@')[0] } } as any);
+      } catch { /* invalid token */ }
+    }
+
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
+      if (data?.user) {
         setUser(data.user);
       } else {
-        // Fallback: check API JWT token in localStorage
-        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            setUser({ email: payload.email, id: payload.id, user_metadata: { full_name: payload.full_name || payload.email?.split('@')[0] } } as any);
-          } catch {}
-        }
+        checkJwtFallback();
+      }
+    }).catch(() => {
+      checkJwtFallback();
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s?.user) {
+        setUser(s.user);
+      } else if (!s) {
+        checkJwtFallback();
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
 
