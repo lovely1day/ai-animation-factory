@@ -217,15 +217,15 @@ export default function CreatePage() {
           // Map to WorkflowStep
           let mappedStep: WorkflowStep = currentStep;
           if (wfStep === 'script' && wfStatus === 'waiting_approval') mappedStep = 'script';
-          else if (wfStep === 'images' && wfStatus === 'waiting_approval') mappedStep = 'images';
+          else if (wfStep === 'images' && (wfStatus === 'waiting_approval' || wfStatus === 'processing')) mappedStep = 'images';
+          else if (wfStep === 'images' && wfStatus === 'processing') mappedStep = 'image_generation';
           else if (['assembly', 'final'].includes(wfStep) || wfStatus === 'completed') mappedStep = 'completed';
-          
+
           setCurrentStep(mappedStep);
-          
-          // Initialize edited data from scenes
-          if (pollData.scenes?.length > 0 && editedScenes.length === 0) {
+
+          // Always update scenes (they get image_url after approval)
+          if (pollData.scenes?.length > 0) {
             setEditedScenes(pollData.scenes);
-            // Build script object from scenes if not available
             if (!editedScript) {
               setEditedScript({
                 title: pollData.title || '',
