@@ -15,6 +15,37 @@ import { useLang } from "@/contexts/language-context";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const COMFYUI_URL = process.env.NEXT_PUBLIC_COMFYUI_URL || "http://localhost:8188";
 
+// ==================== AUTH HELPER ====================
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth_token');
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token
+    ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+}
+
+async function ensureAuth(): Promise<void> {
+  if (getAuthToken()) return;
+  try {
+    let res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ email: "guest@factory.jl", password: "GuestAccess2026!Secure" }),
+    });
+    let data = await res.json();
+    if (data.success && data.data?.token) { localStorage.setItem('auth_token', data.data.token); return; }
+    res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ email: "guest@factory.jl", password: "GuestAccess2026!Secure", full_name: "Guest", role: "viewer" }),
+    });
+    data = await res.json();
+    if (data.success && data.data?.token) { localStorage.setItem('auth_token', data.data.token); }
+  } catch {}
+}
+
 // ==================== COMFYUI DIRECT CLIENT ====================
 
 function buildComfyWorkflow(prompt: string, width = 896, height = 512, steps = 20) {
@@ -38,7 +69,7 @@ async function submitToComfyUI(prompt: string): Promise<string | null> {
     const workflow = buildComfyWorkflow(prompt);
     const res = await fetch(`${COMFYUI_PROXY}/prompt`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ prompt: workflow }),
     });
     if (!res.ok) return `mock-${Date.now()}`;
@@ -287,22 +318,24 @@ export function IdeaGenerator() {
 
   useEffect(() => {
     setMounted(true);
-    // Check provider status
-    fetch(`${API_URL}/api/idea/providers`)
-      .then(r => r.json())
-      .then(d => {
-        const providers = d.data?.providers || [];
-        const ollama = d.data?.ollama;
-        const isEnabled = (id: string) => providers.find((p: any) => p.id === id)?.enabled || false;
-        setProviderStatus({
-          claude: isEnabled('claude'),
-          gemini: isEnabled('gemini'),
-          ollama: ollama?.running || false,
-          "ollama+gemini": (ollama?.running && isEnabled('gemini')) || false,
-          "ollama+claude": (ollama?.running && isEnabled('claude')) || false,
-        });
-      })
-      .catch(() => {});
+    // Ensure auth then check provider status
+    ensureAuth().then(() => {
+      fetch(`${API_URL}/api/idea/providers`, { headers: authHeaders() })
+        .then(r => r.json())
+        .then(d => {
+          const providers = d.data?.providers || [];
+          const ollama = d.data?.ollama;
+          const isEnabled = (id: string) => providers.find((p: any) => p.id === id)?.enabled || false;
+          setProviderStatus({
+            claude: isEnabled('claude'),
+            gemini: isEnabled('gemini'),
+            ollama: ollama?.running || false,
+            "ollama+gemini": (ollama?.running && isEnabled('gemini')) || false,
+            "ollama+claude": (ollama?.running && isEnabled('claude')) || false,
+          });
+        })
+        .catch(() => {});
+    });
   }, []);
 
   // Polling effect — polls ComfyUI directly
@@ -379,7 +412,7 @@ export function IdeaGenerator() {
           const platformLabel = PLATFORM_STYLES.find(p => p.id === selectedPlatform)?.label;
           const res = await fetch(`${API_URL}/api/idea/story`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders(),
             body: JSON.stringify({ idea, provider, genreHint: coreLabel, platformHint: platformLabel }),
           });
           const data = await res.json();
@@ -403,7 +436,7 @@ export function IdeaGenerator() {
       const platformLabel = PLATFORM_STYLES.find(p => p.id === selectedPlatform)?.label;
       const response = await fetch(`${API_URL}/api/idea/story`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ idea, provider: selectedProviders[0] || "gemini", genreHint: coreLabel, platformHint: platformLabel }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -450,7 +483,7 @@ export function IdeaGenerator() {
     try {
       const response = await fetch(`${API_URL}/api/idea/quick`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ enhancedIdea: currentIdea, provider: selectedProviders[0] || "gemini" }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -527,7 +560,7 @@ export function IdeaGenerator() {
 
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ ideas: [enrichedIdea], provider: selectedProviders[0] || "gemini" }),
       });
       if (!response.ok) throw new Error("Failed to generate script");
@@ -634,7 +667,7 @@ export function IdeaGenerator() {
 
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ ideas, provider: selectedProviders[0] || "gemini" }),
       });
 
@@ -751,7 +784,7 @@ export function IdeaGenerator() {
 
       const res = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           scriptTitle: script?.title,
           sceneNumber: scene.number,
