@@ -8,7 +8,7 @@ export class ScriptWriterService {
 
     const { idea, scene_count } = input;
 
-    const prompt = `You are a professional animated series scriptwriter. Write a complete episode script.
+    const prompt = `You are an elite Hollywood cinematographer and screenwriter. Write a cinematic shot-by-shot breakdown.
 
 Episode Concept:
 - Title: ${idea.title}
@@ -17,7 +17,14 @@ Episode Concept:
 - Target Audience: ${idea.target_audience}
 - Theme: ${idea.theme}
 
-Write exactly ${scene_count} scenes. Each scene = 6-10 seconds of animation content.
+Create exactly ${scene_count} SHOTS (not scenes). Think like a film director:
+- Each shot = 2-4 seconds of screen time
+- Vary shot types: establishing, wide, medium, close-up, extreme close-up, POV, over-shoulder, aerial
+- Vary camera movement: static, slow pan, zoom in, dolly, crane up, tracking
+- Use cinematic transitions: cut, fade, dissolve, match cut
+- First 3 shots must HOOK the viewer instantly (dramatic, mysterious, or breathtaking)
+- Last 2-3 shots must leave emotional impact (cliffhanger, revelation, or powerful closure)
+- Middle shots build tension, develop characters, advance plot
 
 Return ONLY a JSON object with exactly this structure:
 {
@@ -29,21 +36,26 @@ Return ONLY a JSON object with exactly this structure:
   "scenes": [
     {
       "scene_number": 1,
-      "title": "Scene title",
-      "description": "What happens visually in this scene",
-      "visual_prompt": "Detailed prompt for AI image generation. Include: art style (vibrant animated, cel-shaded), colors, lighting, characters appearance, setting details, camera angle. 30-50 words.",
-      "dialogue": "Character says this OR 'NARRATOR: voice-over text'. Max 30 words.",
-      "narration": "Background narration or atmosphere description. Max 25 words.",
-      "duration_seconds": 8
+      "title": "ESTABLISHING - City skyline at dawn",
+      "description": "[WIDE SHOT, SLOW PAN] What the camera sees in this exact frame",
+      "visual_prompt": "Cinematic wide shot, golden hour dawn light over ancient city skyline, mist rising from valleys, volumetric lighting, dramatic shadows, film grain, anamorphic lens flare, 35mm film look, masterpiece composition. 40-60 words.",
+      "dialogue": "Character dialogue OR 'NARRATOR: voice-over'. Max 25 words. Empty string if no dialogue.",
+      "narration": "Internal thoughts, atmosphere, or scene-setting narration. Max 20 words.",
+      "duration_seconds": 3
     }
   ]
 }
 
-Rules:
-- Exactly ${scene_count} scenes — no more, no less
-- visual_prompt must be rich and specific for image generation
-- Dialogue should feel natural for ${idea.target_audience} audience
-- Each scene flows naturally into the next (good pacing)
+CINEMATOGRAPHY RULES:
+- Exactly ${scene_count} shots — no more, no less
+- visual_prompt MUST include: shot type, lighting, mood, color palette, camera angle, film style. Be SPECIFIC.
+- Duration: 2-4 seconds per shot (total ~60-90 seconds)
+- Dialogue: short, impactful, natural for ${idea.target_audience}. Use "" for silent shots.
+- Pacing: fast cuts for action/tension, longer holds for emotion/beauty
+- Color: maintain consistent palette per mood (warm=hope, cool=danger, desaturated=despair)
+- NEVER repeat the same shot type twice in a row
+- Include at least 2 reaction shots (character emotions)
+- Include at least 1 detail/insert shot (hands, eyes, objects)
 - Return valid JSON only`;
 
     const context = `Title: ${idea.title}, Genre: ${idea.genre}, Audience: ${idea.target_audience}`;

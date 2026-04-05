@@ -72,15 +72,21 @@ YOUR ONLY JOB: Write the screenplay and dialogue. Nothing else.
 STORY TO ADAPT:
 ${storyContext}
 
-Write ${sceneCount} scenes. Each scene must advance the THEME, not just the plot.
-Scene arc: Setup → Escalation → Confrontation → Resolution
+Write exactly ${sceneCount} SHOTS (cinematic shots, not full scenes). Think like a Hollywood director:
+- Each shot = 2-4 seconds of screen time (total ~60-90 seconds)
+- Shots 1-3: HOOK the viewer instantly (dramatic, mysterious, or breathtaking)
+- Middle shots: Build story, develop characters, escalate tension
+- Last 3 shots: Emotional payoff, revelation, or cliffhanger
+
+SHOT TYPES (vary — NEVER repeat the same type consecutively):
+ESTABLISHING (aerial/wide), WIDE, MEDIUM, CLOSE-UP, EXTREME CLOSE-UP, POV, OVER-SHOULDER, LOW ANGLE, HIGH ANGLE
 
 RULES:
-- Dialogue in Arabic — RICH and LAYERED: minimum 4-6 exchanges per scene, each character has a distinct voice
-- Every line of dialogue must carry subtext — what they MEAN is not what they SAY
-- Action descriptions in Arabic — vivid, cinematic, sensory details (sounds, smells, textures)
-- imagePrompt (for AI image generation) in English — cinematic, detailed, specific camera angle + lighting
-- Every scene must end with a hook — a question, a revelation, or a reversal that demands the next scene
+- Dialogue in Arabic — short and punchy (max 15 words per shot). Silent shots are powerful — use them.
+- Action descriptions in Arabic — include [SHOT TYPE, CAMERA MOVEMENT] prefix
+- imagePrompt in English — MUST include: shot type, camera angle, lighting, color palette, mood, composition, art style
+- Include at least 3 reaction shots, 2 detail/insert shots, 2 establishing shots
+- Not every shot needs dialogue — atmospheric silence builds tension
 
 Return JSON:
 {
@@ -88,12 +94,12 @@ Return JSON:
   "scenes": [
     {
       "sceneNumber": 1,
-      "location": "المكان بالعربية",
-      "timeOfDay": "الوقت بالعربية",
-      "action": "وصف الحركة والأحداث",
-      "dialogue": "الحوار الكامل مع أسماء الشخصيات",
-      "subtext": "ما لا يُقال — المعنى الحقيقي تحت السطح",
-      "imagePrompt": "cinematic scene: [subject], [camera angle], [lighting], [mood], [art style], 8K"
+      "location": "المكان",
+      "timeOfDay": "الوقت",
+      "action": "[WIDE, SLOW PAN] وصف الحركة",
+      "dialogue": "حوار قصير أو سلسلة فارغة",
+      "subtext": "المعنى تحت السطح",
+      "imagePrompt": "cinematic wide shot, slow pan, golden hour, ancient city panorama, volumetric fog, warm palette, anamorphic lens, 35mm film grain, 8K"
     }
   ]
 }`;

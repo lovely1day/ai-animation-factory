@@ -201,7 +201,7 @@ router.post('/screenplay', async (req: Request, res: Response) => {
     const { story, sceneCount = 6 } = req.body;
     if (!story) return res.status(400).json({ error: 'story is required' });
 
-    const count = Math.min(Math.max(Number(sceneCount) || 10, 2), 16);
+    const count = Math.min(Math.max(Number(sceneCount) || 25, 2), 35);
     const engineOpts = parseEngineOptions(req.body);
 
     const prompt = screenplayWriterPrompt(story, count);
@@ -517,7 +517,7 @@ router.post('/council/screenplay', async (req: Request, res: Response) => {
     const { story, sceneCount = 6 } = req.body;
     if (!story) return res.status(400).json({ error: 'story is required' });
 
-    const count = Math.min(Math.max(Number(sceneCount) || 10, 2), 16);
+    const count = Math.min(Math.max(Number(sceneCount) || 25, 2), 35);
     const engineOpts = parseEngineOptions(req.body);
 
     const prompt = screenplayWriterPrompt(story, count);

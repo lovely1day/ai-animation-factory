@@ -229,7 +229,7 @@ router.post('/', async (req, res) => {
     // If project_id provided, use project settings
     let projectSettings = {
       approval_steps: ['script', 'images'],
-      default_scene_count: 8,
+      default_scene_count: 25,
       default_video_quality: 'hd'
     };
 
