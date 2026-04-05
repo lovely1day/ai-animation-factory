@@ -113,9 +113,22 @@ export default function AppHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auth state
+  // Auth state — check Supabase Auth first, then API JWT fallback
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser(data.user);
+      } else {
+        // Fallback: check API JWT token in localStorage
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            setUser({ email: payload.email, id: payload.id, user_metadata: { full_name: payload.full_name || payload.email?.split('@')[0] } } as any);
+          } catch {}
+        }
+      }
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
@@ -145,6 +158,8 @@ export default function AppHeader() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    if (typeof window !== 'undefined') localStorage.removeItem('auth_token');
+    setUser(null);
     setUserMenuOpen(false);
   };
 
