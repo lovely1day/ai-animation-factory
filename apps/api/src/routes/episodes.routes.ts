@@ -136,14 +136,15 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get episode with project info
+    // Get episode (left join projects — works even if project_id is null)
     const { data: episode, error: episodeError } = await supabase
       .from('episodes')
-      .select('*, projects(*)')
+      .select('*, projects!left(*)')
       .eq('id', id)
       .single();
 
     if (episodeError || !episode) {
+      logger.error({ error: episodeError?.message, id }, 'Episode fetch failed');
       return res.status(404).json({
         success: false,
         error: 'Episode not found'
@@ -574,6 +575,7 @@ router.post('/:id/start', async (req, res) => {
       .single();
 
     if (error || !episode) {
+      logger.error({ error: error?.message, id }, 'Episode start: not found');
       return res.status(404).json({ success: false, error: 'Episode not found' });
     }
 
