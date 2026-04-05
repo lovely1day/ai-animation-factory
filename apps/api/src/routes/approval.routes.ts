@@ -310,43 +310,26 @@ router.post('/episodes/:id/scenes/:sceneNumber/regenerate', async (req, res) => 
     // Use new prompt or existing
     const prompt = visual_prompt || scene.visual_prompt;
 
-    // Update scene with new prompt
-    const { error: updateError } = await supabase
+    // Generate new image URL via Pollinations
+    const seed = parseInt(sceneNumber) * 1000 + Math.floor(Math.random() * 9999);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
+
+    // Update scene
+    await supabase
       .from('scenes')
       .update({
         visual_prompt: prompt,
-        status: 'pending',
+        image_url: imageUrl,
+        status: 'completed',
         updated_at: new Date().toISOString()
       })
       .eq('id', scene.id);
 
-    if (updateError) {
-      throw updateError;
-    }
-
-    // Submit regeneration
-    const result = await comfyUIGenerationService.generateSceneImage({
-      episode_id: id,
-      scene_number: parseInt(sceneNumber),
-      visual_prompt: prompt,
-    });
-
-    // Update scene with generation ID
-    await supabase
-      .from('scenes')
-      .update({
-        generation_ids: { ...scene.generation_ids, comfyui_prompt_id: result.prompt_id }
-      })
-      .eq('id', scene.id);
-
-    logger.info({ episode_id: id, scene_number: sceneNumber }, 'Scene regeneration started');
+    logger.info({ episode_id: id, scene_number: sceneNumber }, 'Scene regenerated via Pollinations');
 
     res.json({
       success: true,
-      data: {
-        prompt_id: result.prompt_id,
-        message: 'Scene regeneration started'
-      }
+      data: { image_url: imageUrl, message: 'Scene regenerated' }
     });
   } catch (error: any) {
     logger.error({ error: error.message, episode_id: req.params.id, scene_number: req.params.sceneNumber }, 'Failed to regenerate scene');
