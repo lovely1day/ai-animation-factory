@@ -59,14 +59,30 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    if (err) {
-      setError(t("البريد أو كلمة المرور غير صحيحة.", "Invalid email or password."));
-    } else {
-      // Get API JWT token for backend requests
+
+    // Try Supabase Auth first
+    const { error: supaErr } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (!supaErr) {
+      // Supabase login succeeded — get API token too
       await getApiToken(email, password);
       router.push("/create");
+      setLoading(false);
+      return;
     }
+
+    // Supabase failed — try API auth directly (register + login)
+    try {
+      await getApiToken(email, password);
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        router.push("/create");
+        setLoading(false);
+        return;
+      }
+    } catch {}
+
+    setError(t("البريد أو كلمة المرور غير صحيحة.", "Invalid email or password."));
     setLoading(false);
   };
 

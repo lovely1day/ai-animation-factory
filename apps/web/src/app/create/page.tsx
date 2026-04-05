@@ -537,10 +537,12 @@ export default function CreatePage() {
             <p className="text-xs text-gray-500 text-center">اختر النموذج لتوليد الفكرة</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { model: "mistral",    label: "Mistral",      desc: "دقيق JSON",   color: "from-violet-600/80 to-purple-600/80 border-violet-500/30 hover:from-violet-500 hover:to-purple-500",  isCloud: false },
-                { model: "llama3",     label: "LLaMA 3",      desc: "إبداعي",      color: "from-blue-600/80 to-cyan-600/80 border-blue-500/30 hover:from-blue-500 hover:to-cyan-500",             isCloud: false },
-                { model: "qwen2.5:7b", label: "Qwen 2.5",     desc: "متوازن",      color: "from-emerald-600/80 to-teal-600/80 border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500",    isCloud: false },
-                { model: "claude",     label: "Claude Haiku", desc: "سحابي ✦",     color: "from-amber-600/80 to-orange-600/80 border-amber-500/30 hover:from-amber-500 hover:to-orange-500",      isCloud: true  },
+                { model: "grok",       label: "Grok",         desc: "جريء ✦",      color: "from-red-600/80 to-rose-600/80 border-red-500/30 hover:from-red-500 hover:to-rose-500",                isCloud: true  },
+                { model: "gemini",     label: "Gemini",       desc: "بصري ✦",      color: "from-sky-600/80 to-blue-600/80 border-sky-500/30 hover:from-sky-500 hover:to-blue-500",                isCloud: true  },
+                { model: "openai",     label: "GPT-4o",       desc: "عاطفي ✦",     color: "from-green-600/80 to-emerald-600/80 border-green-500/30 hover:from-green-500 hover:to-emerald-500",    isCloud: true  },
+                { model: "claude",     label: "Claude",       desc: "عميق ✦",      color: "from-amber-600/80 to-orange-600/80 border-amber-500/30 hover:from-amber-500 hover:to-orange-500",      isCloud: true  },
+                { model: "mistral",    label: "Mistral",      desc: "محلي",        color: "from-violet-600/80 to-purple-600/80 border-violet-500/30 hover:from-violet-500 hover:to-purple-500",    isCloud: false },
+                { model: "qwen2.5:7b", label: "Qwen 2.5",     desc: "محلي",        color: "from-emerald-600/80 to-teal-600/80 border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500",    isCloud: false },
               ].map(({ model, label, desc, color, isCloud }) => (
                 <button
                   key={model}
