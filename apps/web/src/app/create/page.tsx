@@ -316,7 +316,7 @@ export default function CreatePage() {
 
   const handleApproveImages = async (approved: boolean) => {
     if (!episodeId) return;
-    
+
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/images`, {
@@ -325,8 +325,13 @@ export default function CreatePage() {
         body: JSON.stringify({ action: approved ? 'approved' : 'rejected' }),
       });
 
-      if (!res.ok) {
-        throw new Error("فشل في معالجة الموافقة");
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "فشل في معالجة الموافقة");
+      }
+
+      if (approved) {
+        setCurrentStep('completed');
       }
     } catch (err: any) {
       setError(err.message);
