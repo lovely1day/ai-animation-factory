@@ -86,19 +86,32 @@ async function ensureAuth(): Promise<string | null> {
   const existing = getAuthToken();
   if (existing) return existing;
 
-  // Auto-register/login as guest for idea generation
+  const guestEmail = "guest@factory.jl";
+  const guestPass = "GuestAccess2026!Secure";
+
   try {
-    const res = await fetch(`${API_URL}/api/auth/login`, {
+    // Try login first
+    let res = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "guest@factory.jl", password: "guest-access-2026" }),
+      body: JSON.stringify({ email: guestEmail, password: guestPass }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.data?.token) {
-        localStorage.setItem('auth_token', data.data.token);
-        return data.data.token;
-      }
+    let data = await res.json();
+    if (data.success && data.data?.token) {
+      localStorage.setItem('auth_token', data.data.token);
+      return data.data.token;
+    }
+
+    // Register if login failed
+    res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: guestEmail, password: guestPass, full_name: "Guest", role: "viewer" }),
+    });
+    data = await res.json();
+    if (data.success && data.data?.token) {
+      localStorage.setItem('auth_token', data.data.token);
+      return data.data.token;
     }
   } catch {}
   return null;
@@ -139,12 +152,14 @@ export default function CreatePage() {
   const [activeSceneTab, setActiveSceneTab] = useState(0);
   const [regeneratingScenes, setRegeneratingScenes] = useState<Set<number>>(new Set());
 
-  // Load provider status on mount
+  // Load provider status on mount (after ensuring auth)
   useEffect(() => {
-    fetch(`${API_URL}/api/idea/providers`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(d => { if (d.success) setProviders(d.data); })
-      .catch(() => {});
+    ensureAuth().then(() => {
+      fetch(`${API_URL}/api/idea/providers`, { headers: authHeaders() })
+        .then(r => r.json())
+        .then(d => { if (d.success) setProviders(d.data); })
+        .catch(() => {});
+    });
   }, []);
 
   // Refresh providers after each generation
@@ -161,6 +176,8 @@ export default function CreatePage() {
     setLastEngine(null);
     setError("");
     try {
+      // Ensure we have auth token before generating
+      await ensureAuth();
       const body = isCloud
         ? { genre, target_audience: targetAudience, mode: 'cloud' as const, provider: model }
         : { genre, target_audience: targetAudience, mode: 'hybrid' as const, ollamaModel: model };
