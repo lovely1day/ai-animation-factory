@@ -58,7 +58,7 @@ router.post('/episodes/:id/script', async (req, res) => {
     // Get current episode
     const { data: episode, error: fetchError } = await supabase
       .from('episodes')
-      .select('workflow_step, workflow_status, script_data, project_id')
+      .select('workflow_step, workflow_status, project_id, metadata')
       .eq('id', id)
       .single();
 
@@ -76,37 +76,25 @@ router.post('/episodes/:id/script', async (req, res) => {
       });
     }
 
-    // Create approval log
-    const { error: logError } = await supabase
-      .from('approval_logs')
-      .insert({
-        episode_id: id,
-        project_id: episode.project_id,
-        step: 'script',
-        action,
-        comment,
-        requested_changes: modifications || null,
-        created_at: new Date().toISOString()
-      });
-
-    if (logError) {
-      throw logError;
-    }
+    // Create approval log (skip if table doesn't exist)
+    try {
+      await supabase
+        .from('approval_logs')
+        .insert({
+          episode_id: id,
+          project_id: episode.project_id,
+          step: 'script',
+          action,
+          comment,
+          requested_changes: modifications || null,
+          created_at: new Date().toISOString()
+        });
+    } catch {}
 
     let updateData: any = {};
 
     if (action === 'approved') {
-      // Update script with modifications if provided
-      if (modifications && episode.script_data) {
-        updateData.script_data = {
-          ...episode.script_data,
-          ...modifications,
-          scenes: modifications.scenes || episode.script_data.scenes
-        };
-      }
-
       updateData.workflow_status = 'approved';
-      updateData.current_approval_step = null;
 
       // Update scenes if modified
       if (modifications?.scenes) {
@@ -115,7 +103,6 @@ router.post('/episodes/:id/script', async (req, res) => {
             .from('scenes')
             .upsert({
               episode_id: id,
-              project_id: episode.project_id,
               scene_number: scene.scene_number,
               title: scene.title,
               description: scene.description,
@@ -133,7 +120,7 @@ router.post('/episodes/:id/script', async (req, res) => {
       logger.info({ episode_id: id }, 'Script approved — triggering image generation (Pollinations.ai)');
 
       // Persist approval, then move episode to images/processing
-      updateData.updatedAt = new Date().toISOString();
+      updateData.updated_at = new Date().toISOString();
       updateData.workflow_step = 'images';
       updateData.workflow_status = 'processing';
       updateData.workflow_progress = 30;
