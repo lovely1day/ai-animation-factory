@@ -63,7 +63,8 @@ if (isMockMode) {
   router.use('/generation', generationRateLimit, authenticate, generationRoutes);
   router.use('/jobs', apiRateLimit, authenticate, jobsRoutes);
   router.use('/analytics', apiRateLimit, authenticate, analyticsRoutes);
-  router.use('/idea', generationRateLimit, authenticate, ideaRoutes);
+  // TEMP: idea routes public for team demo — revert after demo
+  router.use('/idea', generationRateLimit, ideaRoutes);
   router.use('/image-prompts', apiRateLimit, authenticate, imagePromptsRoutes);
   router.use('/characters', apiRateLimit, authenticate, charactersRoutes);
 }
