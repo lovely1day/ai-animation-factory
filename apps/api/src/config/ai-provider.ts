@@ -424,7 +424,13 @@ async function generateWithClaude<T>(
   const response = await claudeClient.messages.create({
     model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
-    system: CLAUDE_SYSTEM_PROMPT,
+    system: [
+      {
+        type: 'text',
+        text: CLAUDE_SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ] as any,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -451,7 +457,13 @@ async function generateTextWithClaude(
   const response = await claudeClient.messages.create({
     model: options.model || 'claude-sonnet-4-6',
     max_tokens: options.maxTokens ?? 4096,
-    system: CLAUDE_SYSTEM_PROMPT,
+    system: [
+      {
+        type: 'text',
+        text: CLAUDE_SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ] as any,
     messages: [{ role: 'user', content: prompt }],
   });
 

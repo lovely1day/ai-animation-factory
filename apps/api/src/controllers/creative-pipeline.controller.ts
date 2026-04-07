@@ -39,10 +39,28 @@ const OLLAMA_MODEL = env.OLLAMA_MODEL || 'qwen2.5:7b';
 
 async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
   if (!claude) throw new Error('Claude not configured');
+
+  // Prompt Caching: long prompts (>1024 tokens ≈ 4000 chars) are cached as system
+  // Cache hits on retries/regenerations within 5 minutes → 90% cost reduction
+  const useCache = prompt.length > 4000;
+
   const res = await claude.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: maxTokens,
-    messages: [{ role: 'user', content: prompt }],
+    ...(useCache
+      ? {
+          system: [
+            {
+              type: 'text',
+              text: prompt,
+              cache_control: { type: 'ephemeral' },
+            },
+          ] as any,
+          messages: [{ role: 'user', content: 'Generate the response now.' }],
+        }
+      : {
+          messages: [{ role: 'user', content: prompt }],
+        }),
   });
   const block = res.content[0];
   return block.type === 'text' ? block.text : '';
