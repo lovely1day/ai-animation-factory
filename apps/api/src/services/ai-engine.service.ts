@@ -2,7 +2,7 @@
  * AI Engine — Unified provider layer for all idea/creative operations
  *
  * Combines:
- * - Cloud providers (Claude, Gemini, OpenAI, Grok, Kimi) via ai-provider.ts
+ * - Cloud providers (Claude, Gemini, OpenAI, Grok) via ai-provider.ts
  * - Local Ollama (free, offline)
  * - Hybrid mode: Ollama generates → Cloud reviews
  * - Fallback chain: preferred → next available → Ollama

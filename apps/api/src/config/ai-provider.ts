@@ -1,6 +1,6 @@
 /**
  * Unified AI Provider System
- * Supports: Gemini (Primary), OpenAI, Claude, Grok, Kimi
+ * Supports: Gemini (Primary), OpenAI, Claude, Grok
  * Easily extensible for additional providers
  */
 
@@ -30,7 +30,6 @@ const usageStore: Record<string, ProviderUsage> = {
   openai: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
   claude: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
   grok:   { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
-  kimi:   { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
   ollama: { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },
 };
 
@@ -51,7 +50,7 @@ export function getProviderUsage(): Record<string, ProviderUsage> {
 }
 
 // Provider Types
-export type AIProvider = 'gemini' | 'openai' | 'claude' | 'grok' | 'kimi' | 'auto';
+export type AIProvider = 'gemini' | 'openai' | 'claude' | 'grok' | 'auto';
 
 // Configuration
 interface ProviderConfig {
@@ -97,14 +96,6 @@ const PROVIDERS: Record<AIProvider, ProviderConfig> = {
     supportsStreaming: true,
     maxTokens: 4096,
   },
-  kimi: {
-    name: 'Moonshot Kimi',
-    enabled: !!env.KIMI_API_KEY,
-    priority: 5,
-    supportsJson: true,
-    supportsStreaming: true,
-    maxTokens: 4096,
-  },
   auto: {
     name: 'Auto Select',
     enabled: true,
@@ -134,14 +125,6 @@ const grokClient = env.GROK_API_KEY
   ? new OpenAI({
       apiKey: env.GROK_API_KEY,
       baseURL: 'https://api.x.ai/v1',
-    })
-  : null;
-
-// Kimi client (using OpenAI-compatible API)
-const kimiClient = env.KIMI_API_KEY
-  ? new OpenAI({
-      apiKey: env.KIMI_API_KEY,
-      baseURL: 'https://api.moonshot.cn/v1',
     })
   : null;
 
@@ -212,7 +195,6 @@ export async function generateJSON<T>(
       case 'openai': result = await generateWithOpenAI<T>(prompt, options); break;
       case 'claude': result = await generateWithClaude<T>(prompt, options); break;
       case 'grok':   result = await generateWithGrok<T>(prompt, options); break;
-      case 'kimi':   result = await generateWithKimi<T>(prompt, options); break;
       default: throw new Error(`Unknown provider: ${provider}`);
     }
     if (usageStore[provider]) {
@@ -258,8 +240,6 @@ export async function generateText(
       return generateTextWithClaude(prompt, options);
     case 'grok':
       return generateTextWithGrok(prompt, options);
-    case 'kimi':
-      return generateTextWithKimi(prompt, options);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -560,52 +540,6 @@ async function generateTextWithGrok(
       { role: 'system', content: GROK_SYSTEM_PROMPT },
       { role: 'user', content: prompt },
     ],
-    temperature: options.temperature ?? 0.9,
-    max_tokens: options.maxTokens ?? 4096,
-  });
-
-  return response.choices[0].message.content || '';
-}
-
-// ==================== Kimi Implementation ====================
-
-async function generateWithKimi<T>(
-  prompt: string,
-  options: { model?: string; temperature?: number; maxTokens?: number }
-): Promise<T> {
-  if (!kimiClient) {
-    throw new Error('Kimi client not initialized');
-  }
-
-  const response = await kimiClient.chat.completions.create({
-    model: options.model || 'moonshot-v1-8k',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: options.temperature ?? 0.9,
-    max_tokens: options.maxTokens ?? 4096,
-  });
-
-  const content = response.choices[0].message.content;
-  if (!content) throw new Error('Empty response from Kimi');
-
-  // Try to extract JSON
-  const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
-                    content.match(/```([\s\S]*?)```/) || 
-                    [null, content];
-  
-  return JSON.parse(jsonMatch[1] || content) as T;
-}
-
-async function generateTextWithKimi(
-  prompt: string,
-  options: { model?: string; temperature?: number; maxTokens?: number }
-): Promise<string> {
-  if (!kimiClient) {
-    throw new Error('Kimi client not initialized');
-  }
-
-  const response = await kimiClient.chat.completions.create({
-    model: options.model || 'moonshot-v1-8k',
-    messages: [{ role: 'user', content: prompt }],
     temperature: options.temperature ?? 0.9,
     max_tokens: options.maxTokens ?? 4096,
   });

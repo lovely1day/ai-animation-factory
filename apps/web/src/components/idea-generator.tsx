@@ -1156,7 +1156,7 @@ export function IdeaGenerator() {
             {selectedProviders.map((provider) => {
               const result = comparisonResults.find(r => r.provider === provider);
               const isLoading = loadingProviders[provider];
-              const providerIcons: Record<string, string> = { gemini: "✨", kimi: "🌙", "ollama+gemini": "🔄", ollama: "🤖" };
+              const providerIcons: Record<string, string> = { gemini: "✨", "ollama+gemini": "🔄", ollama: "🤖" };
 
               return (
                 <div key={provider} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col">

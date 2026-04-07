@@ -389,7 +389,7 @@ router.get('/providers', async (_req: Request, res: Response) => {
     const usage = getProviderUsage();
     const ollamaStatus = await getOllamaStatus();
 
-    const providers = ['gemini', 'openai', 'claude', 'grok', 'kimi'].map(p => ({
+    const providers = ['gemini', 'openai', 'claude', 'grok'].map(p => ({
       id: p,
       enabled: isProviderAvailable(p as any),
       usage: usage[p] || { calls: 0, success: 0, errors: 0, lastUsed: null, lastError: null },

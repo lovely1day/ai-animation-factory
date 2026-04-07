@@ -50,8 +50,7 @@ export const env = {
   OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
   CLAUDE_API_KEY: optional('CLAUDE_API_KEY', ''),      // Anthropic Claude
   GROK_API_KEY: optional('GROK_API_KEY', ''),          // xAI Grok
-  KIMI_API_KEY: optional('KIMI_API_KEY', ''),          // Moonshot Kimi
-  
+
   // Other AI Services
   RUNWAY_API_KEY: optional('RUNWAY_API_KEY', ''),
   RUNWAY_API_URL: optional('RUNWAY_API_URL', 'https://api.runwayml.com/v1'),
