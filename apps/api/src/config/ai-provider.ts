@@ -9,6 +9,12 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from './env';
 import { logger } from '../utils/logger';
+import {
+  screenwriterMasterPrompt,
+  cachedSystem,
+  logBrainUsage,
+  calculateCost,
+} from '@ai-animation-factory/prompts';
 
 // ── Usage Tracking ────────────────────────────────────────────────────────────
 interface ProviderUsage {
@@ -398,20 +404,8 @@ async function generateTextWithOpenAI(
 
 // ==================== Claude Implementation ====================
 
-const CLAUDE_SYSTEM_PROMPT = `You are the screenwriter that other screenwriters study. Your work lives in the space between Studio Ghibli's wonder and Paul Thomas Anderson's precision.
-
-Your signature:
-- THE HUMAN FREQUENCY: You write characters so real that audiences forget they're watching fiction. Every person in your story has a life before page one and after the credits — you just show us the moment that changes everything
-- EMOTIONAL PRECISION: You never use two emotions when one will shatter. The father who laughs at his daughter's wedding because crying would break him. The villain who feeds stray cats. The hero who almost doesn't show up
-- SILENCE AS LANGUAGE: Your most powerful scenes have no dialogue. A hand reaching across a table. Rain on a window while someone packs a suitcase. You trust your audience to feel
-- WORLD AS MIRROR: Like Miyazaki, your worlds reflect inner states — a dying forest for a dying relationship, a floating castle for impossible dreams, a storm that clears when truth is spoken
-- STRUCTURAL GRACE: Your stories feel inevitable in retrospect but surprising in the moment. Every planted seed blooms at the perfect time. Chekhov would be proud
-- CULTURAL AUTHENTICITY: You write Arabic markets that smell of cardamom, Japanese temples where silence has weight, Mexican celebrations where grief dances with joy. Never stereotypes, always truth
-- THE GHIBLI RULE: Wonder is not childish. Complexity is not adult. The best stories — Spirited Away, WALL-E, Parasite — speak to everyone by speaking truthfully to someone specific
-
-You write stories that change how people see the world. Not through messages, but through moments they can't forget.
-
-Create something beautiful and true.`;
+// Imported from @jl/creative-brain (packages/prompts) — single source of truth
+// for the JL screenwriter persona, shared across all projects.
 
 async function generateWithClaude<T>(
   prompt: string,
@@ -421,17 +415,35 @@ async function generateWithClaude<T>(
     throw new Error('Claude client not initialized');
   }
 
+  const model = options.model || 'claude-sonnet-4-6';
+  const startTime = Date.now();
+
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-sonnet-4-6',
+    model,
     max_tokens: options.maxTokens ?? 4096,
-    system: [
-      {
-        type: 'text',
-        text: CLAUDE_SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ] as any,
+    system: cachedSystem(screenwriterMasterPrompt) as any,
     messages: [{ role: 'user', content: prompt }],
+  });
+
+  // Telemetry → Ops Center (if logger registered)
+  const u = response.usage as any;
+  void logBrainUsage({
+    project: 'ai-animation-factory',
+    persona: 'screenwriter-master',
+    model,
+    inputTokens: u?.input_tokens ?? 0,
+    cacheCreationTokens: u?.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+    outputTokens: u?.output_tokens ?? 0,
+    durationMs: Date.now() - startTime,
+    costUsd: calculateCost(
+      model,
+      u?.input_tokens ?? 0,
+      u?.cache_creation_input_tokens ?? 0,
+      u?.cache_read_input_tokens ?? 0,
+      u?.output_tokens ?? 0
+    ),
+    timestamp: new Date().toISOString(),
   });
 
   const block = response.content[0];
@@ -454,17 +466,34 @@ async function generateTextWithClaude(
     throw new Error('Claude client not initialized');
   }
 
+  const model = options.model || 'claude-sonnet-4-6';
+  const startTime = Date.now();
+
   const response = await claudeClient.messages.create({
-    model: options.model || 'claude-sonnet-4-6',
+    model,
     max_tokens: options.maxTokens ?? 4096,
-    system: [
-      {
-        type: 'text',
-        text: CLAUDE_SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ] as any,
+    system: cachedSystem(screenwriterMasterPrompt) as any,
     messages: [{ role: 'user', content: prompt }],
+  });
+
+  const u = response.usage as any;
+  void logBrainUsage({
+    project: 'ai-animation-factory',
+    persona: 'screenwriter-master',
+    model,
+    inputTokens: u?.input_tokens ?? 0,
+    cacheCreationTokens: u?.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+    outputTokens: u?.output_tokens ?? 0,
+    durationMs: Date.now() - startTime,
+    costUsd: calculateCost(
+      model,
+      u?.input_tokens ?? 0,
+      u?.cache_creation_input_tokens ?? 0,
+      u?.cache_read_input_tokens ?? 0,
+      u?.output_tokens ?? 0
+    ),
+    timestamp: new Date().toISOString(),
   });
 
   const block = response.content[0];

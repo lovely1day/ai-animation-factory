@@ -24,6 +24,9 @@ import {
   buildCompressionPrompt,
   manualCompress,
   extractJSON,
+  cachedSystem,
+  logBrainUsage,
+  calculateCost,
 } from '@ai-animation-factory/prompts';
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
@@ -37,31 +40,48 @@ const OLLAMA_MODEL = env.OLLAMA_MODEL || 'qwen2.5:7b';
 
 // ─── Provider Layer ────────────────────────────────────────────────────────────
 
-async function callClaude(prompt: string, maxTokens = 4096): Promise<string> {
+async function callClaude(prompt: string, maxTokens = 4096, persona = 'creative-council'): Promise<string> {
   if (!claude) throw new Error('Claude not configured');
 
-  // Prompt Caching: long prompts (>1024 tokens ≈ 4000 chars) are cached as system
-  // Cache hits on retries/regenerations within 5 minutes → 90% cost reduction
+  // Long prompts (>4000 chars ≈ 1024 tokens) → cache as system for 90% savings
   const useCache = prompt.length > 4000;
+  const model = 'claude-sonnet-4-6';
+  const startTime = Date.now();
 
   const res = await claude.messages.create({
-    model: 'claude-sonnet-4-6',
+    model,
     max_tokens: maxTokens,
     ...(useCache
       ? {
-          system: [
-            {
-              type: 'text',
-              text: prompt,
-              cache_control: { type: 'ephemeral' },
-            },
-          ] as any,
+          system: cachedSystem(prompt) as any,
           messages: [{ role: 'user', content: 'Generate the response now.' }],
         }
       : {
           messages: [{ role: 'user', content: prompt }],
         }),
   });
+
+  // Telemetry → Ops Center
+  const u = res.usage as any;
+  void logBrainUsage({
+    project: 'ai-animation-factory',
+    persona,
+    model,
+    inputTokens: u?.input_tokens ?? 0,
+    cacheCreationTokens: u?.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+    outputTokens: u?.output_tokens ?? 0,
+    durationMs: Date.now() - startTime,
+    costUsd: calculateCost(
+      model,
+      u?.input_tokens ?? 0,
+      u?.cache_creation_input_tokens ?? 0,
+      u?.cache_read_input_tokens ?? 0,
+      u?.output_tokens ?? 0
+    ),
+    timestamp: new Date().toISOString(),
+  });
+
   const block = res.content[0];
   return block.type === 'text' ? block.text : '';
 }
