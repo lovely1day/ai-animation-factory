@@ -27,6 +27,7 @@ import {
   cachedSystem,
   logBrainUsage,
   calculateCost,
+  screenwriterMasterPrompt,
 } from '@ai-animation-factory/prompts';
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
@@ -43,22 +44,16 @@ const OLLAMA_MODEL = env.OLLAMA_MODEL || 'qwen2.5:7b';
 async function callClaude(prompt: string, maxTokens = 4096, persona = 'creative-council'): Promise<string> {
   if (!claude) throw new Error('Claude not configured');
 
-  // Long prompts (>4000 chars ≈ 1024 tokens) → cache as system for 90% savings
-  const useCache = prompt.length > 4000;
+  // Use the master persona as the cached system prompt
+  // The actual user prompt always goes in messages so Claude responds correctly
   const model = 'claude-sonnet-4-6';
   const startTime = Date.now();
 
   const res = await claude.messages.create({
     model,
     max_tokens: maxTokens,
-    ...(useCache
-      ? {
-          system: cachedSystem(prompt) as any,
-          messages: [{ role: 'user', content: 'Generate the response now.' }],
-        }
-      : {
-          messages: [{ role: 'user', content: prompt }],
-        }),
+    system: cachedSystem(screenwriterMasterPrompt) as any,
+    messages: [{ role: 'user', content: prompt }],
   });
 
   // Telemetry → Ops Center
