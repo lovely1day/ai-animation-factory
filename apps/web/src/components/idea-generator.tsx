@@ -2393,11 +2393,30 @@ export function IdeaGenerator() {
 
           try {
             await ensureAuth();
+
+            // Normalize genre to DB-allowed values
+            const allowedGenres = ['adventure','comedy','drama','sci-fi','fantasy','horror','romance','thriller','educational','mystery'];
+            const allowedAudiences = ['children','teens','adults','general'];
+            const genreMap: Record<string,string> = {
+              'action':'adventure','scifi':'sci-fi','sci_fi':'sci-fi',
+              'مغامرة':'adventure','كوميدي':'comedy','دراما':'drama','فانتازيا':'fantasy',
+              'رعب':'horror','رومانسي':'romance','إثارة':'thriller','خيال علمي':'sci-fi',
+              'غموض':'mystery','تعليمي':'educational','أكشن':'adventure','كوميديا':'comedy',
+            };
+            const audienceMap: Record<string,string> = {
+              'kids':'children','أطفال':'children','مراهقين':'teens','مراهقون':'teens',
+              'بالغين':'adults','بالغون':'adults','عام':'general','family':'general','عائلي':'general',
+            };
+            const rawGenre = (enhancedIdea?.genre || selectedCoreGenre || 'adventure').toLowerCase().trim();
+            const rawAudience = (enhancedIdea?.targetAge || selectedAudience || 'general').toLowerCase().trim();
+            const normalizedGenre = genreMap[rawGenre] || (allowedGenres.includes(rawGenre) ? rawGenre : 'adventure');
+            const normalizedAudience = audienceMap[rawAudience] || (allowedAudiences.includes(rawAudience) ? rawAudience : 'general');
+
             const payload = {
               title: activeScript?.title || enhancedIdea?.title || 'Untitled',
               description: enhancedIdea?.concept || '',
-              genre: (enhancedIdea?.genre || selectedCoreGenre || 'adventure').toLowerCase(),
-              target_audience: (enhancedIdea?.targetAge || selectedAudience || 'general').toLowerCase(),
+              genre: normalizedGenre,
+              target_audience: normalizedAudience,
               scenes: approvedScenes.map((s, i) => ({
                 scene_number: s.number ?? i + 1,
                 title: `${s.location || 'Scene'} - ${s.time || ''}`.trim(),
