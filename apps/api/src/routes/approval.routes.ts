@@ -214,7 +214,39 @@ router.post('/episodes/:id/script', async (req, res) => {
             updated_at: new Date().toISOString(),
           }).eq('id', id);
 
-          logger.info({ episode_id: id, count: scenes.length }, 'Enhanced prompts + image URLs assigned via Pollinations.ai');
+          logger.info({ episode_id: id, count: scenes.length }, 'Images ready — dispatching voice + music in PARALLEL');
+
+          // PARALLEL DISPATCH: voice + music start NOW (don't wait for image approval)
+          // By the time the user reviews images, voice + music are already done.
+          try {
+            const totalDuration = scenes.reduce((sum, s) => sum + 5, 0);
+            const epGenre = (episode as any).genre || genre || 'adventure';
+
+            // Voice jobs — fire all in parallel
+            const voicePromises = scenes
+              .filter(s => s.dialogue || s.narration)
+              .map(scene => {
+                const text = [scene.dialogue, scene.narration].filter(Boolean).join(' ');
+                return voiceQueue.add(`voice-scene-${scene.scene_number}`, {
+                  episode_id: id,
+                  scene_id: scene.id,
+                  text,
+                });
+              });
+
+            // Music — single job
+            const musicPromise = musicQueue.add(`music-${id}`, {
+              episode_id: id,
+              genre: epGenre,
+              mood: epGenre,
+              duration: totalDuration,
+            });
+
+            await Promise.allSettled([...voicePromises, musicPromise]);
+            logger.info({ episode_id: id, voice_jobs: voicePromises.length }, 'Voice + music dispatched in parallel with images');
+          } catch (parallelErr: any) {
+            logger.warn({ error: parallelErr.message }, 'Parallel voice/music dispatch failed (non-fatal)');
+          }
         } catch (bgErr: any) {
           logger.error({ error: bgErr.message, episode_id: id }, 'Background image generation failed');
           await supabase.from('episodes').update({
