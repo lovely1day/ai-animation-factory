@@ -230,7 +230,7 @@ router.post('/', async (req, res) => {
     // If project_id provided, use project settings
     let projectSettings = {
       approval_steps: ['script', 'images'],
-      default_scene_count: 25,
+      default_scene_count: 4,
       default_video_quality: 'hd'
     };
 
@@ -580,7 +580,7 @@ router.post('/:id/start', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Episode not found' });
     }
 
-    const sceneCount = (episode.metadata as any)?.generation_settings?.scene_count || 6;
+    const sceneCount = (episode.metadata as any)?.generation_settings?.scene_count || 4;
 
     // Update status immediately so frontend shows loading
     await supabase.from('episodes').update({
