@@ -96,13 +96,16 @@ export class AnimationService {
       scene_id: input.scene_id,
     }, 'Starting animation generation');
 
-    // Skip Runway if API key not configured — use static image as animation placeholder
+    // Skip Runway if API key not configured — return EMPTY animation_url
+    // so assembly-worker falls back to image_url path (which uses imageToVideo).
+    // Returning input.image_url here was the bug: assembly thought it had a real
+    // mp4, named the file scene_X.mp4 but it was actually a JPEG → 1-frame video.
     const runwayReady = this.apiKey && !this.apiKey.includes('your-') && this.apiKey.length > 10;
     if (!runwayReady) {
-      logger.warn({ scene_id: input.scene_id }, 'Runway not configured — using image as animation placeholder');
+      logger.warn({ scene_id: input.scene_id }, 'Runway not configured — leaving animation_url empty (assembly will use image)');
       return {
-        animation_url: input.image_url,
-        file_key: `episodes/${input.episode_id}/scenes/${input.scene_id}/animation.mp4`,
+        animation_url: '',
+        file_key: '',
       };
     }
 

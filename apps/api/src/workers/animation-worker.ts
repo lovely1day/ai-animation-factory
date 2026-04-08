@@ -27,25 +27,28 @@ export function createAnimationWorker() {
 
       await job.updateProgress(80);
 
-      // Save animation URL to scene
+      // Save animation URL to scene (null if no real animation — assembly will use image)
+      const realAnimUrl = result.animation_url && result.animation_url.length > 5 ? result.animation_url : null;
       await supabase
         .from("scenes")
         .update({
-          animation_url: result.animation_url,
+          animation_url: realAnimUrl,
           status: "completed",
           updated_at: new Date().toISOString(),
         })
         .eq("id", scene_id);
 
-      // Save asset record
-      await supabase.from("assets").insert({
-        episode_id,
-        scene_id,
-        asset_type: "animation",
-        file_url: result.animation_url,
-        file_key: result.file_key,
-        mime_type: "video/mp4",
-      });
+      // Save asset record only if real animation
+      if (realAnimUrl) {
+        await supabase.from("assets").insert({
+          episode_id,
+          scene_id,
+          asset_type: "animation",
+          file_url: realAnimUrl,
+          file_key: result.file_key,
+          mime_type: "video/mp4",
+        });
+      }
 
       await job.updateProgress(90);
 
