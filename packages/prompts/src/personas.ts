@@ -81,12 +81,18 @@ Write exactly ${sceneCount} SHOTS (cinematic shots, not full scenes). Think like
 SHOT TYPES (vary — NEVER repeat the same type consecutively):
 ESTABLISHING (aerial/wide), WIDE, MEDIUM, CLOSE-UP, EXTREME CLOSE-UP, POV, OVER-SHOULDER, LOW ANGLE, HIGH ANGLE
 
+⚠️ LANGUAGE RULE — CRITICAL ⚠️
+- ALL location, timeOfDay, action, dialogue, subtext, logline = ARABIC ONLY (العربية الفصحى الحديثة)
+- imagePrompt ONLY = English (for AI image generation)
+- Any English in Arabic fields = FAILURE. Rewrite.
+
 RULES:
 - Dialogue in Arabic — short and punchy (max 15 words per shot). Silent shots are powerful — use them.
-- Action descriptions in Arabic — include [SHOT TYPE, CAMERA MOVEMENT] prefix
+- Action descriptions in Arabic — include [SHOT TYPE, CAMERA MOVEMENT] prefix in Arabic: [لقطة واسعة، باندينج بطيء]
 - imagePrompt in English — MUST include: shot type, camera angle, lighting, color palette, mood, composition, art style
-- Include at least 3 reaction shots, 2 detail/insert shots, 2 establishing shots
+- Include at least 2 reaction shots, 1 detail/insert shot, 1 establishing shot
 - Not every shot needs dialogue — atmospheric silence builds tension
+- BE CONCISE — keep each field short to fit within token limits
 
 Return JSON:
 {

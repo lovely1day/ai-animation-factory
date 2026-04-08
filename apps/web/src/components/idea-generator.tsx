@@ -575,7 +575,7 @@ export function IdeaGenerator() {
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ story: storyText, sceneCount: 25, provider: selectedProviders[0] || "grok" }),
+        body: JSON.stringify({ story: storyText, sceneCount: 12, provider: selectedProviders[0] || "grok" }),
       });
       if (!response.ok) throw new Error("Failed to generate script");
       const data = await response.json();
@@ -685,7 +685,7 @@ export function IdeaGenerator() {
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ story: storyForScript, sceneCount: 25, provider: selectedProviders[0] || "grok" }),
+        body: JSON.stringify({ story: storyForScript, sceneCount: 12, provider: selectedProviders[0] || "grok" }),
       });
 
       if (!response.ok) throw new Error("Failed to generate scripts");
