@@ -10,6 +10,14 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+function authHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('auth_token');
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Scene {
   id: string;
   scene_number: number;
@@ -83,7 +91,7 @@ export default function EpisodeStudioPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/episodes/${id}`);
+      const res = await fetch(`${API_URL}/api/episodes/${id}`, { headers: authHeaders() });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Failed to load');
       const data = json.data;
@@ -106,7 +114,7 @@ export default function EpisodeStudioPage() {
     try {
       const res = await fetch(`${API_URL}/api/regen-scene`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ episode_id: id, scene_id: sceneId, asset_type: assetType }),
       });
       const json = await res.json();
@@ -127,7 +135,7 @@ export default function EpisodeStudioPage() {
     try {
       const res = await fetch(`${API_URL}/api/episodes/${id}/regenerate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ asset_type: 'video' }),
       });
       const json = await res.json();
@@ -162,7 +170,7 @@ export default function EpisodeStudioPage() {
 
       const res = await fetch(`${API_URL}/api/scene-upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ scene_id: pendingUploadSceneId, image_base64: base64, mime_type: file.type }),
       });
       const json = await res.json();
