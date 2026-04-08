@@ -756,22 +756,27 @@ router.post('/from-approved', async (req, res) => {
 
         if (!savedScenes || savedScenes.length === 0) return;
 
-        const totalDuration = savedScenes.reduce((sum, s) => sum + (s.duration_seconds || 4), 0);
+        // FAST MODE: skip voice + music — silent video first, audio added later
+        // (Saves ~60-90s. Voice/music can be regenerated separately after the video works.)
+        const SKIP_AUDIO = true;
+        const totalDuration = savedScenes.reduce((sum, s) => sum + (s.duration_seconds || 5), 0);
 
-        // Voice jobs — one per scene with text
-        for (const scene of savedScenes) {
-          const text = [scene.dialogue, scene.narration].filter(Boolean).join(' ');
-          if (text.trim()) {
-            await _voiceQueue.add(`voice-scene-${scene.scene_number}`, {
-              episode_id: episode.id,
-              scene_id: scene.id,
-              text,
-            });
+        if (!SKIP_AUDIO) {
+          for (const scene of savedScenes) {
+            const text = [scene.dialogue, scene.narration].filter(Boolean).join(' ');
+            if (text.trim()) {
+              await _voiceQueue.add(`voice-scene-${scene.scene_number}`, {
+                episode_id: episode.id,
+                scene_id: scene.id,
+                text,
+              });
+            }
           }
+          await _musicQueue.add(`music-${episode.id}`, { episode_id: episode.id, genre, mood: genre, duration: totalDuration });
         }
 
-        // Music job
-        await _musicQueue.add(`music-${episode.id}`, {
+        // Music job (skipped in FAST MODE)
+        if (false) await _musicQueue.add(`music-${episode.id}`, {
           episode_id: episode.id,
           genre,
           mood: genre,
