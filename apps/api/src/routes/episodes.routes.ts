@@ -8,7 +8,6 @@ import { approvalWorkflowService } from '../services/approval-workflow.service';
 import { comfyUIGenerationService } from '../services/comfyui-generation.service';
 import { PipelineService } from '../services/pipeline.service';
 import { scriptWriterService } from '../services/script-writer.service';
-import { generateJSON } from '../config/ai-provider';
 import { WorkflowStep, WORKFLOW_STEP_DETAILS, calculateWorkflowProgress, getNextWorkflowStep } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
@@ -618,36 +617,9 @@ router.post('/:id/start', async (req, res) => {
           scene_count: sceneCount,
         });
 
-        // Stage 2: Visual Director — enhance visual_prompts with cinematography
-        // (runs AI to add shot type, camera movement, lighting, color palette)
-        try {
-          const visualEnhancePrompt = `You are a Visual Director. Enhance these ${script.scenes.length} scene image prompts with precise cinematography.
-For each scene, improve the visual_prompt to include: exact shot type, camera angle, lens, lighting direction, color temperature, depth of field, film stock look.
-Keep the original scene content but make the visual_prompt more specific for AI image generation.
-
-Current scenes:
-${script.scenes.map((s: any) => `Scene ${s.scene_number}: ${s.visual_prompt}`).join('\n')}
-
-Return JSON array of enhanced prompts only:
-[{"scene_number": 1, "visual_prompt": "enhanced prompt here"}, ...]`;
-
-          const enhanced = await generateJSON<Array<{ scene_number: number; visual_prompt: string }>>(
-            visualEnhancePrompt,
-            { provider: 'auto' }
-          );
-
-          if (Array.isArray(enhanced)) {
-            for (const e of enhanced) {
-              const scene = script.scenes.find((s: any) => s.scene_number === e.scene_number);
-              if (scene && e.visual_prompt) {
-                scene.visual_prompt = e.visual_prompt;
-              }
-            }
-            logger.info({ episode_id: id, enhanced: enhanced.length }, 'Visual Director enhanced prompts');
-          }
-        } catch (vizErr: any) {
-          logger.warn({ error: vizErr.message }, 'Visual Director enhancement skipped — using original prompts');
-        }
+        // Stage 2 (Visual Director) REMOVED — was adding 25-30s without much gain.
+        // The script writer already generates cinematic prompts with shot types.
+        // ScenePromptService still runs at image-gen time for genre/audience styling.
 
         // Remove old scenes then insert new ones
         await supabase.from('scenes').delete().eq('episode_id', id);

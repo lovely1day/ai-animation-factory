@@ -166,32 +166,46 @@ router.post('/episodes/:id/script', async (req, res) => {
             }
           }
 
-          for (const scene of scenes) {
-            // Enhance prompt using ScenePromptService
-            const enhanced = await scenePromptService.enhance(
-              { scene_number: scene.scene_number, visual_prompt: scene.visual_prompt, title: '', description: scene.description || '', dialogue: scene.dialogue || '', narration: scene.narration || '', duration_seconds: 8 } as any,
-              genre,
-              audience
-            );
+          // PARALLEL: enhance + generate images for ALL scenes simultaneously
+          // (was sequential — 8 scenes × 10s = 80s, now ~12s)
+          await Promise.all(scenes.map(async (scene) => {
+            try {
+              const enhanced = await scenePromptService.enhance(
+                { scene_number: scene.scene_number, visual_prompt: scene.visual_prompt, title: '', description: scene.description || '', dialogue: scene.dialogue || '', narration: scene.narration || '', duration_seconds: 5 } as any,
+                genre,
+                audience
+              );
 
-            // Inject character DNA if available
-            let finalPrompt = enhanced.visual_prompt;
-            if (characterDNA) {
-              finalPrompt = injectCharacterIntoScene(finalPrompt, characterDNA, 'foreground');
+              let finalPrompt = enhanced.visual_prompt;
+              if (characterDNA) {
+                finalPrompt = injectCharacterIntoScene(finalPrompt, characterDNA, 'foreground');
+              }
+              const cleanPrompt = finalPrompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
+              const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
+              // Smaller dimensions = faster Pollinations generation
+              const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=432&seed=${seed}&model=flux&nologo=true`;
+
+              await supabase.from('scenes').update({
+                visual_prompt: finalPrompt,
+                image_url: imageUrl,
+                status: 'completed',
+                updated_at: new Date().toISOString(),
+              }).eq('id', scene.id);
+
+              logger.debug({ scene_number: scene.scene_number }, 'Scene prompt enhanced (parallel)');
+            } catch (err: any) {
+              logger.warn({ scene_number: scene.scene_number, error: err.message }, 'Scene enhance failed — using original prompt');
+              // Fallback: use original prompt without enhancement
+              const cleanPrompt = scene.visual_prompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
+              const seed = scene.scene_number * 1000;
+              const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=432&seed=${seed}&model=flux&nologo=true`;
+              await supabase.from('scenes').update({
+                image_url: imageUrl,
+                status: 'completed',
+                updated_at: new Date().toISOString(),
+              }).eq('id', scene.id);
             }
-            const cleanPrompt = finalPrompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
-            const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=576&seed=${seed}&model=flux&nologo=true`;
-
-            await supabase.from('scenes').update({
-              visual_prompt: finalPrompt,
-              image_url: imageUrl,
-              status: 'completed',
-              updated_at: new Date().toISOString(),
-            }).eq('id', scene.id);
-
-            logger.debug({ scene_number: scene.scene_number, enhanced: finalPrompt.slice(0, 80) }, 'Scene prompt enhanced');
-          }
+          }));
 
           await supabase.from('episodes').update({
             workflow_step: 'images',
