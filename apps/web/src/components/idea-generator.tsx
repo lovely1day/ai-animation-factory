@@ -356,7 +356,7 @@ export function IdeaGenerator() {
     });
   }, []);
 
-  // Polling effect — polls production pipeline status until video is ready
+  // Polling effect — polls production pipeline status with detailed feedback
   useEffect(() => {
     if (!productionEpisodeId || finalVideoUrl) return;
 
@@ -369,14 +369,38 @@ export function IdeaGenerator() {
         const ep = data.data;
         const step = ep.workflow_step;
         const status = ep.workflow_status;
+        const sceneList = ep.scenes || [];
 
-        // Update stage label
-        if (step === 'production') setProductionStage('جاري توليد الصوت + الموسيقى + التحريك...');
-        else if (step === 'assembly') setProductionStage('جاري تجميع الفيديو بـ FFmpeg...');
-        else if (step === 'subtitles') setProductionStage('جاري إضافة الترجمة...');
-        else if (step === 'final' || status === 'completed') setProductionStage('اكتمل!');
+        // Count what's done
+        const totalScenes = sceneList.length;
+        const animatedScenes = sceneList.filter((s: any) => s.animation_url).length;
+        const voicedScenes = sceneList.filter((s: any) => s.voice_url).length;
+        const hasMusic = !!ep.music_url;
+        const hasVideo = !!ep.video_url;
+        const hasSubtitle = !!ep.subtitle_url;
 
-        if (ep.video_url) {
+        // Build detailed stage message
+        let stageMsg = '';
+        if (step === 'production') {
+          const parts: string[] = [];
+          if (animatedScenes > 0) parts.push(`✓ ${animatedScenes}/${totalScenes} مشهد محرّك`);
+          else parts.push(`◯ تحريك المشاهد...`);
+          if (voicedScenes > 0) parts.push(`✓ ${voicedScenes} صوت`);
+          if (hasMusic) parts.push(`✓ موسيقى`);
+          stageMsg = parts.join(' • ');
+          if (!stageMsg) stageMsg = '🎬 جاري توليد الصوت والموسيقى والتحريك...';
+        } else if (step === 'assembly') {
+          stageMsg = '🎞️ جاري تجميع الفيديو بـ FFmpeg...';
+        } else if (step === 'subtitles') {
+          stageMsg = `✓ تم التجميع${hasSubtitle ? ' • ✓ الترجمة' : ' • ◯ جاري إضافة الترجمة'}`;
+        } else if (step === 'final' || status === 'completed' || hasVideo) {
+          stageMsg = '✅ اكتمل!';
+        } else {
+          stageMsg = `🎬 ${step}...`;
+        }
+        setProductionStage(stageMsg);
+
+        if (hasVideo) {
           setFinalVideoUrl(ep.video_url);
           setProducing(false);
           clearInterval(interval);
@@ -390,7 +414,7 @@ export function IdeaGenerator() {
       } catch {
         // keep polling
       }
-    }, 5000);
+    }, 2000); // poll faster (every 2s instead of 5s) for better UX
 
     return () => clearInterval(interval);
   }, [productionEpisodeId, finalVideoUrl]);
