@@ -50,6 +50,9 @@ interface Episode {
   workflow_step: string;
   workflow_status: string;
   workflow_progress: number;
+  video_url?: string;
+  thumbnail_url?: string;
+  subtitle_url?: string;
   workflow_data?: {
     script?: string;
     script_url?: string;
@@ -460,9 +463,9 @@ export default function EpisodeDetailPage() {
                         </div>
                       </a>
                     )}
-                    {episode.workflow_data?.final_video_url && (
+                    {(episode.video_url || episode.workflow_data?.final_video_url) && (
                       <a
-                        href={episode.workflow_data.final_video_url}
+                        href={episode.video_url || episode.workflow_data?.final_video_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
