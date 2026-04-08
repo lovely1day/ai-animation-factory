@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { Queue } from 'bullmq';
 import { supabase } from '../config/supabase';
+import { redisConnection } from '../config/redis';
 import { logger } from '../utils/logger';
 import { safeErrorMessage } from '../middleware/error-handler';
 import { approvalWorkflowService } from '../services/approval-workflow.service';
@@ -10,6 +12,11 @@ import { generateJSON } from '../config/ai-provider';
 import { WorkflowStep, WORKFLOW_STEP_DETAILS, calculateWorkflowProgress, getNextWorkflowStep } from '@ai-animation-factory/shared';
 
 const router: Router = Router();
+
+// Production queues for the from-approved pipeline
+const _voiceQueue = new Queue('voice-generation', { connection: redisConnection });
+const _musicQueue = new Queue('music-generation', { connection: redisConnection });
+const _animationQueue = new Queue('animation', { connection: redisConnection });
 
 /**
  * Get all episodes
@@ -681,6 +688,153 @@ Return JSON array of enhanced prompts only:
   } catch (err: any) {
     logger.error({ error: err.message, episode_id: req.params.id }, 'Failed to start pipeline');
     return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Operation failed') });
+  }
+});
+
+/**
+ * POST /api/episodes/from-approved
+ *
+ * Fast-track endpoint: takes pre-generated scenes with approved images,
+ * creates an episode, saves all scenes, and triggers the full production
+ * pipeline (voice + music + animation → assembly → subtitle → final video).
+ *
+ * Used by the idea-generator "final" step to skip ComfyUI and produce a
+ * real video via FFmpeg.
+ *
+ * Body: {
+ *   title, description, genre, target_audience,
+ *   scenes: [{ scene_number, title, description, visual_prompt, image_url,
+ *              dialogue?, narration?, duration_seconds? }]
+ * }
+ */
+router.post('/from-approved', async (req, res) => {
+  try {
+    const { title, description, genre = 'adventure', target_audience = 'general', scenes } = req.body;
+
+    if (!title || !scenes || !Array.isArray(scenes) || scenes.length === 0) {
+      return res.status(400).json({ success: false, error: 'title and scenes[] are required' });
+    }
+
+    // 1. Create episode directly at "images approved" state
+    const { data: episode, error: epErr } = await supabase
+      .from('episodes')
+      .insert({
+        title,
+        description,
+        idea: description,
+        genre,
+        target_audience,
+        status: 'generating',
+        workflow_step: 'production',
+        workflow_status: 'processing',
+        workflow_progress: 65,
+        approval_steps: ['script', 'images'],
+        approvals_log: [],
+        metadata: {
+          generation_settings: { scene_count: scenes.length, image_width: 1024, image_height: 576, video_quality: 'hd' },
+          source: 'idea-generator-fast-track',
+        },
+        view_count: 0,
+        like_count: 0,
+        share_count: 0,
+      })
+      .select()
+      .single();
+
+    if (epErr || !episode) {
+      throw new Error(`Failed to create episode: ${epErr?.message || 'unknown'}`);
+    }
+
+    // 2. Insert all scenes with images already set
+    const sceneRows = scenes.map((s: any, i: number) => ({
+      episode_id: episode.id,
+      scene_number: s.scene_number || i + 1,
+      title: s.title || `Scene ${i + 1}`,
+      description: s.description || '',
+      visual_prompt: s.visual_prompt || '',
+      dialogue: s.dialogue || '',
+      narration: s.narration || '',
+      duration_seconds: s.duration_seconds || 4,
+      image_url: s.image_url,
+      status: 'completed',
+    }));
+
+    const { error: scenesErr } = await supabase.from('scenes').insert(sceneRows);
+    if (scenesErr) {
+      throw new Error(`Failed to save scenes: ${scenesErr.message}`);
+    }
+
+    logger.info({ episode_id: episode.id, scene_count: scenes.length }, 'Fast-track episode created, dispatching production pipeline');
+
+    // 3. Respond immediately
+    res.json({
+      success: true,
+      episode_id: episode.id,
+      message: 'Episode created, production pipeline started',
+    });
+
+    // 4. Dispatch production jobs in background (non-blocking)
+    (async () => {
+      try {
+        const { data: savedScenes } = await supabase
+          .from('scenes')
+          .select('id, scene_number, image_url, visual_prompt, dialogue, narration, duration_seconds')
+          .eq('episode_id', episode.id)
+          .order('scene_number');
+
+        if (!savedScenes || savedScenes.length === 0) return;
+
+        const totalDuration = savedScenes.reduce((sum, s) => sum + (s.duration_seconds || 4), 0);
+
+        // Voice jobs — one per scene with text
+        for (const scene of savedScenes) {
+          const text = [scene.dialogue, scene.narration].filter(Boolean).join(' ');
+          if (text.trim()) {
+            await _voiceQueue.add(`voice-scene-${scene.scene_number}`, {
+              episode_id: episode.id,
+              scene_id: scene.id,
+              text,
+            });
+          }
+        }
+
+        // Music job
+        await _musicQueue.add(`music-${episode.id}`, {
+          episode_id: episode.id,
+          genre,
+          mood: genre,
+          duration: totalDuration,
+        });
+
+        // Animation jobs — will auto-trigger assembly when all done
+        for (const scene of savedScenes) {
+          await _animationQueue.add(`animation-scene-${scene.scene_number}`, {
+            episode_id: episode.id,
+            scene_id: scene.id,
+            scene_number: scene.scene_number,
+            image_url: scene.image_url,
+            prompt: scene.visual_prompt,
+            duration_seconds: scene.duration_seconds || 4,
+          });
+        }
+
+        logger.info({
+          episode_id: episode.id,
+          voice_jobs: savedScenes.filter(s => s.dialogue || s.narration).length,
+          animation_jobs: savedScenes.length,
+        }, 'Fast-track production pipeline dispatched');
+      } catch (bgErr: any) {
+        logger.error({ error: bgErr.message, episode_id: episode.id }, 'Fast-track dispatch failed');
+        await supabase.from('episodes').update({
+          workflow_status: 'failed',
+          updated_at: new Date().toISOString(),
+        }).eq('id', episode.id);
+      }
+    })();
+
+  } catch (err: any) {
+    logger.error({ error: err.message }, 'from-approved failed');
+    return res.status(500).json({ success: false, error: safeErrorMessage(err, 'Failed to start production') });
   }
 });
 

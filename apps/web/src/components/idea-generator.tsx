@@ -317,6 +317,13 @@ export function IdeaGenerator() {
   const [sceneImages, setSceneImages] = useState<Record<number, SceneImageState>>({});
   const [activeScript, setActiveScript] = useState<Script | null>(null);
   const [pendingPolls, setPendingPolls] = useState<Array<{ sceneId: number; promptId: string }>>([]);
+
+  // ── Final video production state ──
+  const [producing, setProducing] = useState(false);
+  const [productionEpisodeId, setProductionEpisodeId] = useState<string | null>(null);
+  const [productionStage, setProductionStage] = useState<string>('');
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [productionError, setProductionError] = useState<string | null>(null);
   const [activeSceneTab, setActiveSceneTab] = useState(0);
   const [editingPromptScene, setEditingPromptScene] = useState<number | null>(null);
   const [editPromptValue, setEditPromptValue] = useState("");
@@ -347,6 +354,45 @@ export function IdeaGenerator() {
         .catch(() => {});
     });
   }, []);
+
+  // Polling effect — polls production pipeline status until video is ready
+  useEffect(() => {
+    if (!productionEpisodeId || finalVideoUrl) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/episodes/${productionEpisodeId}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+
+        const ep = data.data;
+        const step = ep.workflow_step;
+        const status = ep.workflow_status;
+
+        // Update stage label
+        if (step === 'production') setProductionStage('جاري توليد الصوت + الموسيقى + التحريك...');
+        else if (step === 'assembly') setProductionStage('جاري تجميع الفيديو بـ FFmpeg...');
+        else if (step === 'subtitles') setProductionStage('جاري إضافة الترجمة...');
+        else if (step === 'final' || status === 'completed') setProductionStage('اكتمل!');
+
+        if (ep.video_url) {
+          setFinalVideoUrl(ep.video_url);
+          setProducing(false);
+          clearInterval(interval);
+        }
+
+        if (status === 'failed') {
+          setProductionError('فشل الإنتاج — راجع logs السيرفر');
+          setProducing(false);
+          clearInterval(interval);
+        }
+      } catch {
+        // keep polling
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [productionEpisodeId, finalVideoUrl]);
 
   // Polling effect — polls ComfyUI directly
   useEffect(() => {
@@ -2329,36 +2375,143 @@ export function IdeaGenerator() {
       )}
 
       {/* ===== STEP 6: FINAL ===== */}
-      {step === "final" && (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20">
-          <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Film className="w-12 h-12 text-white" />
-          </div>
-          <h2 className="text-3xl font-bold mb-4 text-white">{t("جاهز لتوليد الفيديو!", "Ready for Video Generation!")}</h2>
-          <p className="text-gray-400 mb-8 max-w-md mx-auto">
-            {t(
-              `تم اعتماد ${imageStats?.approved || 0} صورة. المرحلة التالية هي تحريك الصور وتوليد الصوت.`,
-              `${imageStats?.approved || 0} images approved. Next step is animating images and generating audio.`
-            )}
-          </p>
-          <div className="flex justify-center gap-3 flex-wrap">
-            <button type="button"
-              onClick={() => window.open(COMFYUI_URL, "_blank")}
-              className={btnPrimary}
-            >
-              <Wand2 className="w-5 h-5" />
-              {t("فتح ComfyUI للتحريك", "Open ComfyUI for Animation")}
-            </button>
-            <button type="button"
-              onClick={reset}
-              className={btnSecondary}
-            >
-              <Sparkles className="w-5 h-5" />
-              {t("إنشاء مشروع جديد", "New Project")}
-            </button>
-          </div>
-        </motion.div>
-      )}
+      {step === "final" && (() => {
+        // Build the approved scenes list (scenes with an approved image)
+        const approvedScenes = activeScript?.scenes.filter(
+          s => sceneImages[s.id]?.approved && sceneImages[s.id]?.imageUrl
+        ) || [];
+
+        // Handler: create episode + trigger production pipeline
+        const handleProduceVideo = async () => {
+          if (approvedScenes.length === 0) {
+            setProductionError(t('لا توجد صور معتمدة', 'No approved images'));
+            return;
+          }
+          setProducing(true);
+          setProductionError(null);
+          setProductionStage(t('جاري إنشاء المشروع...', 'Creating episode...'));
+
+          try {
+            await ensureAuth();
+            const payload = {
+              title: activeScript?.title || enhancedIdea?.title || 'Untitled',
+              description: enhancedIdea?.concept || '',
+              genre: (enhancedIdea?.genre || selectedCoreGenre || 'adventure').toLowerCase(),
+              target_audience: (enhancedIdea?.targetAge || selectedAudience || 'general').toLowerCase(),
+              scenes: approvedScenes.map((s, i) => ({
+                scene_number: s.number ?? i + 1,
+                title: `${s.location || 'Scene'} - ${s.time || ''}`.trim(),
+                description: s.action || s.content || '',
+                visual_prompt: s.imagePrompt || `${s.location}, ${s.action}, cinematic`,
+                dialogue: s.dialogue || '',
+                narration: '',
+                duration_seconds: 4,
+                image_url: sceneImages[s.id]!.imageUrl,
+              })),
+            };
+
+            const res = await fetch(`${API_URL}/api/episodes/from-approved`, {
+              method: 'POST',
+              headers: authHeaders(),
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to start production');
+
+            setProductionEpisodeId(data.episode_id);
+            setProductionStage(t('جاري توليد الصوت والموسيقى والتحريك...', 'Generating voice, music, animation...'));
+          } catch (err: any) {
+            setProductionError(err.message || 'Failed');
+            setProducing(false);
+          }
+        };
+
+        // ── Initial view: ready to produce ──
+        if (!producing && !finalVideoUrl) {
+          return (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Film className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4 text-white">{t('جاهز لتوليد الفيديو!', 'Ready for Video Generation!')}</h2>
+              <p className="text-gray-400 mb-8 max-w-md mx-auto">
+                {t(
+                  `تم اعتماد ${approvedScenes.length} صورة. البايبلاين الكامل سيتولى الباقي: صوت + موسيقى + تحريك + تجميع + ترجمة.`,
+                  `${approvedScenes.length} images approved. The full pipeline will handle: voice + music + animation + assembly + subtitles.`
+                )}
+              </p>
+              {productionError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm max-w-md mx-auto">
+                  {productionError}
+                </div>
+              )}
+              <div className="flex justify-center gap-3 flex-wrap">
+                <button type="button" onClick={handleProduceVideo} disabled={approvedScenes.length === 0} className={btnPrimary}>
+                  <Film className="w-5 h-5" />
+                  {t('توليد الفيديو النهائي', 'Generate Final Video')}
+                </button>
+                <button type="button" onClick={reset} className={btnSecondary}>
+                  <Sparkles className="w-5 h-5" />
+                  {t('إنشاء مشروع جديد', 'New Project')}
+                </button>
+              </div>
+            </motion.div>
+          );
+        }
+
+        // ── Producing view: animated progress ──
+        if (producing && !finalVideoUrl) {
+          return (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <Film className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4 text-white">{t('جاري الإنتاج...', 'Producing...')}</h2>
+              <p className="text-gray-400 mb-6 max-w-lg mx-auto">{productionStage}</p>
+              <div className="flex justify-center gap-2 flex-wrap mb-8">
+                {['الصوت', 'الموسيقى', 'التحريك', 'التجميع', 'الترجمة'].map(stage => (
+                  <span key={stage} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                    {stage}
+                  </span>
+                ))}
+              </div>
+              <div className="w-full max-w-md mx-auto bg-white/5 rounded-full h-2 overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" initial={{ width: '15%' }} animate={{ width: '95%' }} transition={{ duration: 180, ease: 'linear' }} />
+              </div>
+              {productionError && (
+                <div className="mt-6 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm max-w-md mx-auto">
+                  {productionError}
+                </div>
+              )}
+            </motion.div>
+          );
+        }
+
+        // ── Video ready view ──
+        return (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-3 text-white">{t('اكتمل الفيديو!', 'Video Ready!')}</h2>
+            <p className="text-gray-400 mb-6">{t('صور + صوت + موسيقى + ترجمة — كل شي في فيديو واحد', 'Images + voice + music + subtitles — all in one video')}</p>
+            <div className="max-w-2xl mx-auto aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 mb-6">
+              <video src={finalVideoUrl || undefined} controls className="w-full h-full" />
+            </div>
+            <div className="flex justify-center gap-3 flex-wrap">
+              <a href={finalVideoUrl || '#'} download className={btnPrimary}>
+                <Download className="w-5 h-5" />
+                {t('تحميل الفيديو', 'Download Video')}
+              </a>
+              <button type="button" onClick={() => { setFinalVideoUrl(null); setProducing(false); reset(); }} className={btnSecondary}>
+                <Sparkles className="w-5 h-5" />
+                {t('إنشاء مشروع جديد', 'New Project')}
+              </button>
+            </div>
+          </motion.div>
+        );
+      })()}
     </div>
   );
 }
