@@ -6,6 +6,14 @@ import { CheckCircle, Edit3, ChevronDown, ChevronUp, AlertCircle, Loader2, Arrow
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+function authHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('auth_token');
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Scene {
   id: string;
   scene_number: number;
@@ -55,7 +63,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
   const fetchReview = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/episodes/${id}`);
+      const res = await fetch(`${API_URL}/api/episodes/${id}`, { headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
@@ -82,7 +90,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${id}/script`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           action: 'approved',
           modifications: {
@@ -111,7 +119,7 @@ export default function ReviewPage({ params }: { params: { id: string } }) {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${id}/images`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'approved' }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
