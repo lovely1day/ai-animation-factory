@@ -324,7 +324,7 @@ export function IdeaGenerator() {
   const [productionStage, setProductionStage] = useState<string>('');
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
-  const [desiredSceneCount, setDesiredSceneCount] = useState<number>(8);
+  const [desiredSceneCount, setDesiredSceneCount] = useState<number>(4);
   const [activeSceneTab, setActiveSceneTab] = useState(0);
   const [editingPromptScene, setEditingPromptScene] = useState<number | null>(null);
   const [editPromptValue, setEditPromptValue] = useState("");
@@ -1060,7 +1060,7 @@ export function IdeaGenerator() {
         {/* Scene count selector */}
         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-600/20 border border-cyan-500/20">
           <span className="text-cyan-200 text-[11px] font-medium px-1">{t("لقطات", "Shots")}:</span>
-          {[8, 15, 25].map(n => (
+          {[4, 8, 15].map(n => (
             <button
               key={n}
               type="button"

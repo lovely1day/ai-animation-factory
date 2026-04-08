@@ -60,15 +60,14 @@ CINEMATOGRAPHY RULES:
 
     const context = `Title: ${idea.title}, Genre: ${idea.genre}, Audience: ${idea.target_audience}`;
 
-    // Use cloud-only in production (no Ollama on Railway), hybrid locally
-    const isProduction = process.env.NODE_ENV === 'production';
+    // SPEED MODE: cloud-only + skipReview = ~30s instead of 2min
     const { result, engine, reviewed } = await hybridGenerateScript<EpisodeScript>(
       prompt,
       context,
       {
-        mode: isProduction ? 'cloud-only' : 'hybrid',
+        mode: 'cloud-only',
         ollamaModel: 'mistral',
-        skipReview: false,
+        skipReview: true,
       }
     );
 
