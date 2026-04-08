@@ -121,11 +121,18 @@ export class VideoAssemblyService {
 
   private imageToVideo(imagePath: string, outputPath: string, duration: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      ffmpeg(imagePath)
-        .loop(duration)
-        .videoCodec('libx264')
-        .addOption('-pix_fmt', 'yuv420p')
-        .fps(24)
+      // FIX: loop without arg + explicit -t duration + force input format
+      // Without -t, the video has only 1 frame (fraction of a second).
+      ffmpeg()
+        .input(imagePath)
+        .inputOptions(['-loop', '1', '-framerate', '24'])
+        .outputOptions([
+          '-t', String(duration),
+          '-c:v', 'libx264',
+          '-pix_fmt', 'yuv420p',
+          '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2',
+          '-r', '24',
+        ])
         .output(outputPath)
         .on('end', () => resolve())
         .on('error', (err) => reject(err))

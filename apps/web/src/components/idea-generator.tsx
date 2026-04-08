@@ -324,6 +324,7 @@ export function IdeaGenerator() {
   const [productionStage, setProductionStage] = useState<string>('');
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
+  const [desiredSceneCount, setDesiredSceneCount] = useState<number>(8);
   const [activeSceneTab, setActiveSceneTab] = useState(0);
   const [editingPromptScene, setEditingPromptScene] = useState<number | null>(null);
   const [editPromptValue, setEditPromptValue] = useState("");
@@ -621,7 +622,7 @@ export function IdeaGenerator() {
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ story: storyText, sceneCount: 4, provider: selectedProviders[0] || "grok" }),
+        body: JSON.stringify({ story: storyText, sceneCount: desiredSceneCount, provider: selectedProviders[0] || "grok" }),
       });
       if (!response.ok) throw new Error("Failed to generate script");
       const data = await response.json();
@@ -731,7 +732,7 @@ export function IdeaGenerator() {
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ story: storyForScript, sceneCount: 4, provider: selectedProviders[0] || "grok" }),
+        body: JSON.stringify({ story: storyForScript, sceneCount: desiredSceneCount, provider: selectedProviders[0] || "grok" }),
       });
 
       if (!response.ok) throw new Error("Failed to generate scripts");
@@ -1055,6 +1056,26 @@ export function IdeaGenerator() {
             {PLATFORM_STYLES.find(p => p.id === selectedPlatform)?.label}
           </span>
         )}
+
+        {/* Scene count selector */}
+        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-600/20 border border-cyan-500/20">
+          <span className="text-cyan-200 text-[11px] font-medium px-1">{t("لقطات", "Shots")}:</span>
+          {[8, 15, 25].map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setDesiredSceneCount(n)}
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold transition-all ${
+                desiredSceneCount === n
+                  ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                  : 'bg-cyan-900/40 text-cyan-300 hover:bg-cyan-800/40'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+
         {showEdit && (
           <button type="button" onClick={() => setStep("genre")}
             className="text-[11px] text-gray-500 hover:text-purple-400 underline underline-offset-2 transition-colors">
@@ -2424,7 +2445,7 @@ export function IdeaGenerator() {
                 visual_prompt: s.imagePrompt || `${s.location}, ${s.action}, cinematic`,
                 dialogue: s.dialogue || '',
                 narration: '',
-                duration_seconds: 4,
+                duration_seconds: 5,
                 image_url: sceneImages[s.id]!.imageUrl,
               })),
             };
