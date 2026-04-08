@@ -18,6 +18,14 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+function authHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('auth_token');
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Episode {
   id: string;
   title: string;
@@ -64,7 +72,7 @@ export default function EpisodesPage() {
   const fetchEpisodes = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/episodes`);
+      const res = await fetch(`${API_URL}/api/episodes`, { headers: authHeaders() });
       const data = await res.json();
       
       if (data.success) {

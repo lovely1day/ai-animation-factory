@@ -31,6 +31,14 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+function authHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('auth_token');
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Episode {
   id: string;
   title: string;
@@ -121,9 +129,9 @@ export default function EpisodeDetailPage() {
 
   const fetchEpisode = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/episodes/${episodeId}`);
+      const res = await fetch(`${API_URL}/api/episodes/${episodeId}`, { headers: authHeaders() });
       const data = await res.json();
-      
+
       if (data.success) {
         setEpisode(data.data);
       } else {
@@ -138,7 +146,7 @@ export default function EpisodeDetailPage() {
 
   const fetchApprovalLogs = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/logs`);
+      const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/logs`, { headers: authHeaders() });
       const data = await res.json();
       if (data.success) {
         setApprovalLogs(data.data || []);
@@ -151,7 +159,8 @@ export default function EpisodeDetailPage() {
   const handleAdvanceWorkflow = async () => {
     try {
       const res = await fetch(`${API_URL}/api/episodes/${episodeId}/workflow/advance`, {
-        method: "POST"
+        method: "POST",
+        headers: authHeaders(),
       });
       
       const data = await res.json();
@@ -167,7 +176,7 @@ export default function EpisodeDetailPage() {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/${episode?.workflow_step}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'approved', comment: approvalComment }),
       });
 
@@ -186,7 +195,7 @@ export default function EpisodeDetailPage() {
     try {
       const res = await fetch(`${API_URL}/api/approval/episodes/${episodeId}/${episode?.workflow_step}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ action: 'rejected', comment: approvalComment }),
       });
 
