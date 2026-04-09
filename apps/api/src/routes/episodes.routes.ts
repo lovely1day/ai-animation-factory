@@ -216,14 +216,16 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { 
-      title, 
-      description, 
+    const {
+      title,
+      description,
       idea,
       project_id,
-      genre, 
+      genre,
       target_audience,
-      episode_number 
+      episode_number,
+      scene_count,
+      tags
     } = req.body;
 
     if (!title?.trim()) {
@@ -283,11 +285,12 @@ router.post('/', async (req, res) => {
         workflow_progress: 0,
         approval_steps: projectSettings.approval_steps,
         approvals_log: [],
+        tags: tags || [],
         metadata: {
           generation_settings: {
-            scene_count: projectSettings.default_scene_count,
-            image_width: 1024,
-            image_height: 1024,
+            scene_count: scene_count || projectSettings.default_scene_count,
+            image_width: 768,
+            image_height: 432,
             video_quality: projectSettings.default_video_quality
           }
         },
