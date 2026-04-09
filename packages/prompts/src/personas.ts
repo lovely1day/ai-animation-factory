@@ -54,13 +54,34 @@ Return JSON:
 export function screenplayWriterPrompt(story: string | Record<string, unknown>, sceneCount: number): string {
   const storyContext = typeof story === 'string'
     ? story
-    : `Title: ${(story as any).title}
-Concept: ${(story as any).concept}
-Theme: ${(story as any).theme}
-Protagonist: ${(story as any).protagonist?.name} — wants: ${(story as any).protagonist?.desire} — flaw: ${(story as any).protagonist?.flaw}
-Antagonist: ${(story as any).antagonist?.name} — logic: ${(story as any).antagonist?.logic}`;
+    : (() => {
+        const s = story as any;
+        const charactersBlock = Array.isArray(s.characters) && s.characters.length
+          ? '\nالشخصيات:\n' + s.characters.map((c: any) =>
+              `- ${c.name || ''}${c.role ? ` (${c.role})` : ''}${c.description || c.contradiction ? ` — ${c.description || c.contradiction}` : ''}`
+            ).join('\n')
+          : '';
+        return `العنوان: ${s.title || ''}
+الملخص: ${s.concept || s.summary || ''}
+${s.theme ? `الفكرة المحورية: ${s.theme}` : ''}
+${s.protagonist ? `البطل: ${s.protagonist.name || ''} — يريد: ${s.protagonist.desire || ''} — عيبه: ${s.protagonist.flaw || ''}` : ''}
+${s.antagonist ? `الخصم: ${s.antagonist.name || ''} — منطقه: ${s.antagonist.logic || ''}` : ''}
+${s.genre ? `النوع: ${s.genre}` : ''}
+${s.tone ? `النبرة: ${s.tone}` : ''}
+${s.audience ? `الجمهور: ${s.audience}` : ''}${charactersBlock}`.replace(/\n\n+/g, '\n');
+      })();
 
-  return `You are a dialogue craftsman. You apply three tests to every line of dialogue you write:
+  return `أنت كاتب سيناريو محترف. مهمتك تحويل القصة التالية إلى سيناريو سينمائي بالعربية الفصحى.
+
+🚨🚨 قاعدة اللغة الأهم — اقرأها مرتين 🚨🚨
+- كل النص بالعربية الفصحى الحديثة. ممنوع منعاً باتاً أي إنجليزية في أي حقل.
+- الاستثناء الوحيد: حقل imagePrompt يكتب بالإنجليزية فقط (لتوليد الصور).
+- إذا كتبت أي كلمة إنجليزية في location/timeOfDay/action/dialogue/subtext/logline = فشل تام، أعد الكتابة.
+
+القصة الأصلية (التزم بها حرفياً — لا تخترع شخصيات جديدة، لا تغيّر المكان، لا تتجاهل البطل):
+${storyContext}
+
+You are a dialogue craftsman. You apply three tests to every line of dialogue you write:
 1. SUBTEXT TEST: Would a real person in this situation actually say this? Real people deflect, lie, redirect. If a character says what they truly mean — rewrite the line.
 2. FUNCTION TEST: Does this line simultaneously reveal character, advance plot, AND deepen theme? If it only does one — compress or cut.
 3. PRESSURE TEST: Is this character under maximum emotional pressure in this moment? If not — raise the stakes in the scene before they speak.
@@ -69,8 +90,7 @@ If a scene passes all three tests — it stays. If not — rebuild it.
 
 YOUR ONLY JOB: Write the screenplay and dialogue. Nothing else.
 
-STORY TO ADAPT:
-${storyContext}
+CRITICAL: You MUST use the actual characters, setting, and plot from the story above. Do NOT invent a generic "old man in desert" — use the named characters and their relationships.
 
 Write exactly ${sceneCount} SHOTS (cinematic shots, not full scenes). Think like a Hollywood director:
 - Each shot = 2-4 seconds of screen time (total ~60-90 seconds)

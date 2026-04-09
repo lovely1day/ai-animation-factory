@@ -642,11 +642,20 @@ export function IdeaGenerator() {
         targetAge: enhancedIdea.targetAge,
       };
 
-      const storyText = `Title: ${enrichedIdea.title}\nConcept: ${enrichedIdea.concept}\nGenre: ${enrichedIdea.genre} ${enrichedIdea.secondaryGenres?.join(', ') || ''}\nTone: ${enrichedIdea.tone}\nAudience: ${enrichedIdea.audience}\nFormat: ${enrichedIdea.format}\nPlatform: ${enrichedIdea.platformStyle}`;
+      // Pass FULL Arabic story object — preserves title, concept, characters, genre
+      // Backend screenplayWriterPrompt accepts object and extracts fields properly
+      const storyObject = {
+        title: enrichedIdea.title,
+        concept: enrichedIdea.concept,
+        genre: `${enrichedIdea.genre}${enrichedIdea.secondaryGenres?.length ? ' / ' + enrichedIdea.secondaryGenres.join(', ') : ''}`,
+        tone: enrichedIdea.tone,
+        audience: enrichedIdea.audience,
+        characters: enhancedIdea.characters || [],
+      };
       const response = await fetch(`${API_URL}/api/idea/screenplay`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ story: storyText, sceneCount: desiredSceneCount, provider: selectedProviders[0] || "grok" }),
+        body: JSON.stringify({ story: storyObject, sceneCount: desiredSceneCount, provider: selectedProviders[0] || "grok" }),
       });
       if (!response.ok) throw new Error("Failed to generate script");
       const data = await response.json();
@@ -1032,8 +1041,6 @@ export function IdeaGenerator() {
     error: Object.values(sceneImages).filter(i => i.status === "error").length,
   } : null;
 
-  const allGenerationDone = imageStats ? imageStats.generating === 0 : false;
-
   // ==================== RENDER ====================
 
   // ─── Shared button classes ───
@@ -1084,7 +1091,7 @@ export function IdeaGenerator() {
         {/* Scene count selector */}
         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-600/20 border border-cyan-500/20">
           <span className="text-cyan-200 text-[11px] font-medium px-1">{t("لقطات", "Shots")}:</span>
-          {[4, 8, 15, 25].map(n => (
+          {[8, 12, 16, 20, 25].map(n => (
             <button
               key={n}
               type="button"
@@ -2385,37 +2392,38 @@ export function IdeaGenerator() {
           </div>
           </div>{/* end flex layout */}
 
-          {/* Footer: Bulk approve & continue */}
-          {allGenerationDone && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="border-t border-white/10 pt-6 flex flex-col sm:flex-row gap-3"
-            >
-              {imageStats && imageStats.approved < imageStats.done && (
-                <button
-                  type="button"
-                  onClick={approveAllDoneImages}
-                  className={`${btnSecondary} flex-1`}
-                >
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  {t("اعتماد الكل", "Approve All")}
-                  <span className="text-gray-400 text-sm">({imageStats.done})</span>
-                </button>
-              )}
-              <motion.button
-                onClick={() => setStep("final")}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`flex-[2] ${btnPrimary}`}
+          {/* Footer: Bulk approve & continue — ALWAYS visible while in images step */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="sticky bottom-4 z-20 border-t border-white/10 pt-6 mt-6 flex flex-col sm:flex-row gap-3 bg-black/50 backdrop-blur-md p-4 rounded-2xl"
+          >
+            {imageStats && imageStats.done > 0 && imageStats.approved < imageStats.done && (
+              <button
+                type="button"
+                onClick={approveAllDoneImages}
+                className={`${btnSecondary} flex-1`}
               >
-                <Video className="w-5 h-5" />
-                {t("متابعة", "Continue")}
-                <span className="text-white/70 text-sm">({imageStats?.approved || 0} {t("صورة", "images")})</span>
-                <ArrowRight className="w-5 h-5" />
-              </motion.button>
-            </motion.div>
-          )}
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+                {t("اعتماد الكل", "Approve All")}
+                <span className="text-gray-400 text-sm">({imageStats.done})</span>
+              </button>
+            )}
+            <motion.button
+              onClick={() => setStep("final")}
+              disabled={!imageStats || imageStats.approved === 0}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex-[2] ${btnPrimary}`}
+            >
+              <Video className="w-5 h-5" />
+              {t("متابعة لتوليد الفيديو", "Continue to Video")}
+              <span className="text-white/70 text-sm">
+                ({imageStats?.approved || 0}/{imageStats?.total || 0})
+              </span>
+              <ArrowRight className="w-5 h-5" />
+            </motion.button>
+          </motion.div>
         </motion.div>
       )}
 
