@@ -756,9 +756,8 @@ router.post('/from-approved', async (req, res) => {
 
         if (!savedScenes || savedScenes.length === 0) return;
 
-        // FAST MODE: skip voice + music — silent video first, audio added later
-        // (Saves ~60-90s. Voice/music can be regenerated separately after the video works.)
-        const SKIP_AUDIO = true;
+        // Audio re-enabled — base video pipeline now works correctly
+        const SKIP_AUDIO = false;
         const totalDuration = savedScenes.reduce((sum, s) => sum + (s.duration_seconds || 5), 0);
 
         if (!SKIP_AUDIO) {

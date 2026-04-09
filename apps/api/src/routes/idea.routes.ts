@@ -305,7 +305,7 @@ router.post('/full', async (req: Request, res: Response) => {
 
     const genre = clampText(req.body.genre, 100) || 'مغامرة';
     const tone = clampText(req.body.tone, 100) || 'درامي';
-    const sceneCount = Math.min(Math.max(Number(req.body.sceneCount) || 10, 2), 16);
+    const sceneCount = Math.min(Math.max(Number(req.body.sceneCount) || 10, 2), 30);
     const engineOpts = parseEngineOptions(req.body);
 
     const stages: Record<string, { engine: string; durationMs: number }> = {};
@@ -600,7 +600,7 @@ router.post('/council/full', async (req: Request, res: Response) => {
 
     const genre = clampText(req.body.genre, 100) || 'مغامرة';
     const tone = clampText(req.body.tone, 100) || 'درامي';
-    const sceneCount = Math.min(Math.max(Number(req.body.sceneCount) || 8, 2), 16);
+    const sceneCount = Math.min(Math.max(Number(req.body.sceneCount) || 8, 2), 30);
     const engineOpts = parseEngineOptions(req.body);
 
     const stages: Record<string, { members: string[]; judge: string; durationMs: number }> = {};
