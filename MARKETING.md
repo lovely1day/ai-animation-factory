@@ -79,7 +79,7 @@
 ## تواصل معنا
 
 **JackoLeeno JL**
-ali@jackoleeno.com
+info@jackoleeno.com
 
 ---
 

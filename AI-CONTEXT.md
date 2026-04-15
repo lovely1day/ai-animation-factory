@@ -37,7 +37,7 @@
 | **الاسم** | AI Animation Factory — مصنع الأنيميشن الذكي |
 | **الوصف** | نظام إنتاج حلقات أنيميشن مؤتمت بالكامل باستخدام AI |
 | **الغرض** | توليد أفكار → سكربت → صور → موسيقى → أنيميشن → تجميع → ترجمة تلقائيا |
-| **الحالة** | 55% مكتمل |
+| **الحالة** | 82% (Active) — 9 BullMQ workers + أول فيديو حقيقي تولّد |
 | **الرابط** | https://ai-animation-factory-web.vercel.app |
 | **API** | https://api.feelthemusic.app (عبر Cloudflare Tunnel) |
 | **ComfyUI** | https://comfyui.feelthemusic.app (عبر Cloudflare Tunnel) |
