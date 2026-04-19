@@ -12,6 +12,17 @@ export function createAssemblyWorker() {
     async (job) => {
       const { episode_id, scenes, music_url } = job.data;
 
+      // IDEMPOTENCY: skip if video already exists
+      const { data: existing } = await supabase
+        .from("episodes")
+        .select("video_url")
+        .eq("id", episode_id)
+        .single();
+      if (existing?.video_url) {
+        logger.info({ episode_id, video_url: existing.video_url }, "Assembly skipped — video already exists");
+        return { success: true, video_url: existing.video_url, skipped: true };
+      }
+
       logger.info({ episode_id, scene_count: scenes.length }, "Starting video assembly");
 
       await job.updateProgress(10);

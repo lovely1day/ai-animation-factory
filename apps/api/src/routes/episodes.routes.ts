@@ -225,7 +225,8 @@ router.post('/', async (req, res) => {
       target_audience,
       episode_number,
       scene_count,
-      tags
+      tags,
+      visual_style
     } = req.body;
 
     if (!title?.trim()) {
@@ -287,6 +288,7 @@ router.post('/', async (req, res) => {
         approvals_log: [],
         tags: tags || [],
         metadata: {
+          visual_style: visual_style || 'cinematic_realistic',
           generation_settings: {
             scene_count: scene_count || projectSettings.default_scene_count,
             image_width: 768,

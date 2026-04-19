@@ -127,6 +127,7 @@ export default function StudioPage() {
   const [genre, setGenre] = useState("adventure");
   const [audience, setAudience] = useState("general");
   const [sceneCount, setSceneCount] = useState(8);
+  const [visualStyle, setVisualStyle] = useState("cinematic_realistic");
 
   // Episode state (single source of truth from DB)
   const [episodeId, setEpisodeId] = useState<string | null>(null);
@@ -220,6 +221,7 @@ export default function StudioPage() {
           genre,
           target_audience: audience,
           scene_count: sceneCount,
+          visual_style: visualStyle,
           tags: [genre, audience],
         }),
       });
@@ -379,6 +381,8 @@ export default function StudioPage() {
               setAudience={setAudience}
               sceneCount={sceneCount}
               setSceneCount={setSceneCount}
+              visualStyle={visualStyle}
+              setVisualStyle={setVisualStyle}
               onStart={handleStart}
               busy={busy}
             />
@@ -493,6 +497,7 @@ function IdeaForm(props: {
   genre: string; setGenre: (v: string) => void;
   audience: string; setAudience: (v: string) => void;
   sceneCount: number; setSceneCount: (v: number) => void;
+  visualStyle: string; setVisualStyle: (v: string) => void;
   onStart: () => void; busy: boolean;
 }) {
   return (
@@ -592,6 +597,37 @@ function IdeaForm(props: {
             ))}
           </div>
           <p className="text-xs text-gray-500 mt-2">~{props.sceneCount * 5} ثانية فيديو نهائي</p>
+        </div>
+
+        {/* Visual style */}
+        <div>
+          <label className="block text-sm font-medium mb-3 text-gray-300">الستايل البصري</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { v: "cinematic_realistic", l: "🎬 سينمائي واقعي" },
+              { v: "anime", l: "🌸 أنمي / Ghibli" },
+              { v: "pixar_3d", l: "✨ Pixar 3D" },
+              { v: "watercolor", l: "🎨 ألوان مائية" },
+              { v: "black_and_white", l: "⚫ أبيض وأسود" },
+              { v: "comic_book", l: "💥 كومكس" },
+              { v: "oil_painting", l: "🖼️ زيتي كلاسيكي" },
+              { v: "photorealistic", l: "📷 فوتوغرافي" },
+            ].map((s) => (
+              <button
+                key={s.v}
+                type="button"
+                onClick={() => props.setVisualStyle(s.v)}
+                className={`py-2 px-3 rounded-xl text-sm font-bold transition-all ${
+                  props.visualStyle === s.v
+                    ? "bg-amber-500/30 border-2 border-amber-400 text-white"
+                    : "bg-white/5 border-2 border-white/10 text-gray-400 hover:border-white/20"
+                }`}
+              >
+                {s.l}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">يُطبّق على كل اللقطات لضمان وحدة الستايل</p>
         </div>
 
         {/* Start button */}

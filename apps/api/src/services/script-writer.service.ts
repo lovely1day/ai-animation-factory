@@ -8,7 +8,10 @@ export class ScriptWriterService {
 
     const { idea, scene_count } = input;
 
-    const prompt = `You are an elite Hollywood cinematographer and screenwriter. Write a cinematic shot-by-shot breakdown.
+    const prompt = `أنت مخرج سينمائي عالمي وكاتب سيناريو محترف. اكتب سيناريو سينمائي لقطة بلقطة.
+
+🚨 إلزامي: كل النصوص (title, description, dialogue, narration) لازم تكون بالعربية الفصحى.
+visual_prompt يبقى بالإنجليزية فقط (لأنه يروح لمولّد الصور).
 
 Episode Concept:
 - Title: ${idea.title}
@@ -36,11 +39,11 @@ Return ONLY a JSON object with exactly this structure:
   "scenes": [
     {
       "scene_number": 1,
-      "title": "ESTABLISHING - City skyline at dawn",
-      "description": "[WIDE SHOT, SLOW PAN] What the camera sees in this exact frame",
-      "visual_prompt": "Cinematic wide shot, golden hour dawn light over ancient city skyline, mist rising from valleys, volumetric lighting, dramatic shadows, film grain, anamorphic lens flare, 35mm film look, masterpiece composition. 40-60 words.",
-      "dialogue": "Character dialogue OR 'NARRATOR: voice-over'. Max 25 words. Empty string if no dialogue.",
-      "narration": "Internal thoughts, atmosphere, or scene-setting narration. Max 20 words.",
+      "title": "تأسيسية - المدينة عند الفجر (بالعربية)",
+      "description": "[WIDE SHOT, SLOW PAN] وصف ما تراه الكاميرا — بالعربية",
+      "visual_prompt": "Cinematic wide shot, golden hour, anamorphic lens flare, 35mm film look. 40-60 words. ENGLISH ONLY.",
+      "dialogue": "حوار الشخصية بالعربية الفصحى — حد أقصى 25 كلمة. اتركها فارغة إذا ما فيه حوار.",
+      "narration": "السرد الداخلي أو الجو العام بالعربية — حد أقصى 20 كلمة.",
       "duration_seconds": 3
     }
   ]

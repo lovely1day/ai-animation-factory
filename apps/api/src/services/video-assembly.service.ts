@@ -26,28 +26,41 @@ export class VideoAssemblyService {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `episode-${input.episode_id}-`));
 
     try {
-      // Download all scene clips (animations or images)
+      // Download all scene clips (animations or images) — skip failures, don't kill the whole job
       const sceneFiles: string[] = [];
       for (const scene of input.scenes) {
         const sceneUrl = scene.animation_url || scene.image_url;
-        if (!sceneUrl) continue;
+        if (!sceneUrl) { logger.warn({ scene: scene.scene_number }, 'Scene has no url, skipping'); continue; }
 
         const ext = scene.animation_url ? 'mp4' : 'png';
         const scenePath = path.join(tmpDir, `scene_${scene.scene_number}.${ext}`);
 
-        const response = await fetch(sceneUrl);
-        if (!response.ok) throw new Error(`Failed to download scene ${scene.scene_number}`);
-        await fs.writeFile(scenePath, Buffer.from(await response.arrayBuffer()));
+        try {
+          // Retry up to 3 times for flaky Pollinations
+          let response: Response | null = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            response = await fetch(sceneUrl);
+            if (response.ok) break;
+            await new Promise(r => setTimeout(r, 1500));
+          }
+          if (!response || !response.ok) {
+            logger.warn({ scene: scene.scene_number, status: response?.status }, 'Scene download failed after retries, skipping');
+            continue;
+          }
+          await fs.writeFile(scenePath, Buffer.from(await response.arrayBuffer()));
 
-        // If it's an image, create a video from it
-        if (!scene.animation_url) {
-          const videoPath = path.join(tmpDir, `scene_${scene.scene_number}.mp4`);
-          await this.imageToVideo(scenePath, videoPath, scene.duration_seconds);
-          sceneFiles.push(videoPath);
-        } else {
-          sceneFiles.push(scenePath);
+          if (!scene.animation_url) {
+            const videoPath = path.join(tmpDir, `scene_${scene.scene_number}.mp4`);
+            await this.imageToVideo(scenePath, videoPath, scene.duration_seconds);
+            sceneFiles.push(videoPath);
+          } else {
+            sceneFiles.push(scenePath);
+          }
+        } catch (err: any) {
+          logger.warn({ scene: scene.scene_number, error: err.message }, 'Scene processing failed, skipping');
         }
       }
+      if (sceneFiles.length === 0) throw new Error('No scenes could be downloaded');
 
       // Download voice clips
       const voiceFiles: Array<{ path: string; start: number; duration: number }> = [];

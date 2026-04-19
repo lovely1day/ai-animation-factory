@@ -61,28 +61,40 @@ export function createAnimationWorker() {
       const allAnimated = scenes?.every((s) => s.status === "completed" || s.animation_url || s.image_url);
 
       if (allAnimated && scenes && scenes.length > 0) {
-        logger.info({ episode_id, scene_count: scenes.length }, "All scenes animated — dispatching assembly");
-
-        // Get episode music and thumbnail data
+        // Get episode music + check if assembly already done/dispatched
         const { data: episode } = await supabase
           .from("episodes")
-          .select("music_url, thumbnail_url, genre, title")
+          .select("music_url, thumbnail_url, genre, title, video_url")
           .eq("id", episode_id)
           .single();
 
-        await assemblyQueue.add("assemble-episode", {
-          episode_id,
-          scenes: scenes.map((s) => ({
-            scene_id: s.id,
-            scene_number: s.scene_number,
-            animation_url: s.animation_url,
-            image_url: s.image_url,
-            voice_url: s.voice_url,
-            duration_seconds: s.duration_seconds || 8,
-          })),
-          music_url: episode?.music_url || "",
-          thumbnail_url: episode?.thumbnail_url || "",
-        });
+        // IDEMPOTENCY: skip if video already exists
+        if (episode?.video_url) {
+          logger.info({ episode_id }, "Assembly skipped — video_url already exists");
+          await job.updateProgress(100);
+          return { success: true, animation_url: result.animation_url, file_key: result.file_key };
+        }
+
+        logger.info({ episode_id, scene_count: scenes.length }, "All scenes animated — dispatching assembly");
+
+        // DEDUPLICATION: jobId = episode_id → BullMQ rejects duplicates
+        await assemblyQueue.add(
+          "assemble-episode",
+          {
+            episode_id,
+            scenes: scenes.map((s) => ({
+              scene_id: s.id,
+              scene_number: s.scene_number,
+              animation_url: s.animation_url,
+              image_url: s.image_url,
+              voice_url: s.voice_url,
+              duration_seconds: s.duration_seconds || 8,
+            })),
+            music_url: episode?.music_url || "",
+            thumbnail_url: episode?.thumbnail_url || "",
+          },
+          { jobId: `assemble-${episode_id}` }
+        );
 
         // Update episode workflow step
         await supabase

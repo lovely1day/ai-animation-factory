@@ -9,6 +9,7 @@ import { comfyUIGenerationService } from '../services/comfyui-generation.service
 import { PipelineService } from '../services/pipeline.service';
 import { scenePromptService } from '../services/scene-prompt.service';
 import { injectCharacterIntoScene } from '@ai-animation-factory/shared';
+import { buildVisualBible, injectBible, VisualStyle } from '../services/visual-bible.service';
 
 const router: Router = Router();
 
@@ -151,6 +152,15 @@ router.post('/episodes/:id/script', async (req, res) => {
 
           const genre = episode.metadata?.genre || 'adventure';
           const audience = episode.metadata?.target_audience || 'general';
+          const visualStyle: VisualStyle = (episode.metadata?.visual_style as VisualStyle) || 'cinematic_realistic';
+
+          // Build Visual Bible (one Claude call for the whole episode — locks style/chars/locations)
+          const epTitle = (episode as any).title || 'Episode';
+          const bible = await buildVisualBible(scenes as any, visualStyle, epTitle);
+          // Persist for inspection
+          await supabase.from('episodes').update({
+            metadata: { ...(episode.metadata || {}), visual_bible: bible },
+          }).eq('id', id);
 
           // Fetch characters linked to this project/episode for DNA injection
           let characterDNA: string | null = null;
@@ -180,7 +190,9 @@ router.post('/episodes/:id/script', async (req, res) => {
               if (characterDNA) {
                 finalPrompt = injectCharacterIntoScene(finalPrompt, characterDNA, 'foreground');
               }
-              const cleanPrompt = finalPrompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
+              // VISUAL BIBLE LOCK: prepend style + matching characters/locations
+              finalPrompt = injectBible(finalPrompt, `${scene.description || ''} ${scene.dialogue || ''}`, bible);
+              const cleanPrompt = finalPrompt.slice(0, 700).replace(/[^\w\s,.\-()|:\[\]]/g, ' ').trim();
               const seed = scene.scene_number * 1000 + Math.floor(Math.random() * 999);
               // Smaller dimensions = faster Pollinations generation
               const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=432&seed=${seed}&model=flux&nologo=true`;
@@ -195,8 +207,9 @@ router.post('/episodes/:id/script', async (req, res) => {
               logger.debug({ scene_number: scene.scene_number }, 'Scene prompt enhanced (parallel)');
             } catch (err: any) {
               logger.warn({ scene_number: scene.scene_number, error: err.message }, 'Scene enhance failed — using original prompt');
-              // Fallback: use original prompt without enhancement
-              const cleanPrompt = scene.visual_prompt.slice(0, 400).replace(/[^\w\s,.\-()]/g, ' ').trim();
+              // Fallback: use original prompt + bible
+              const withBible = injectBible(scene.visual_prompt, `${scene.description || ''} ${scene.dialogue || ''}`, bible);
+              const cleanPrompt = withBible.slice(0, 700).replace(/[^\w\s,.\-()|:\[\]]/g, ' ').trim();
               const seed = scene.scene_number * 1000;
               const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=768&height=432&seed=${seed}&model=flux&nologo=true`;
               await supabase.from('scenes').update({

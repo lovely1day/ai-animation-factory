@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
+import path from 'path';
+import fs from 'fs/promises';
 
 // Supabase Storage client (uses service role for full access)
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -35,8 +37,15 @@ export async function uploadBuffer(
     });
 
   if (error) {
-    logger.error({ error: error.message, key }, 'Supabase Storage upload failed');
-    throw new Error(`Storage upload failed: ${error.message}`);
+    // FALLBACK: save locally to web/public so the file is still served
+    logger.warn({ error: error.message, key }, 'Supabase Storage failed — using local fallback');
+    const webPublic = path.resolve(process.cwd(), '../web/public');
+    const localPath = path.join(webPublic, key);
+    await fs.mkdir(path.dirname(localPath), { recursive: true });
+    await fs.writeFile(localPath, buffer);
+    const localUrl = `/${key}`;
+    logger.info({ key, localUrl }, 'File saved locally (fallback)');
+    return localUrl;
   }
 
   const url = `${PUBLIC_BASE}/${key}`;
