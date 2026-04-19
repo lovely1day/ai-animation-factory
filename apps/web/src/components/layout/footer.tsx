@@ -225,24 +225,35 @@ export default function AppFooter() {
               <span>{lang === "ar" ? "جميع الحقوق محفوظة" : "All Rights Reserved"}</span>
             </div>
 
-            {/* Powered by & Developed by */}
-            <div className="flex items-center gap-4 text-xs">
-              <span className="flex items-center gap-1.5 text-gray-500">
+            {/* JL Universal Footer Elements (canonical — ping + Claude + heart + team + info@) */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+              <span className="flex items-center gap-1.5 text-gray-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+                </span>
+                <span>{t("متصل", "Online")}</span>
+              </span>
+              <span className="text-gray-700">·</span>
+              <span className="flex items-center gap-1.5 text-gray-400">
                 <Zap className="w-3 h-3 text-yellow-500" />
-                <span>{t("مدعوم بواسطة", "Powered by")}</span>
-                <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                  JackoLeeno JL
-                </span>
+                <span>{t("مدعوم بـ Claude", "Powered by Claude")}</span>
               </span>
-              <span className="text-gray-700">•</span>
-              <span className="flex items-center gap-1.5 text-gray-500">
-                <Code2 className="w-3 h-3 text-cyan-500" />
-                <span>{t("مطور بواسطة", "Developed by")}</span>
-                <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-                  JackoLeeno JL Team
-                </span>
+              <span className="text-gray-700">·</span>
+              <span className="flex items-center gap-1.5 text-gray-400">
+                <span>{t("صُنع بـ", "Made with")}</span>
+                <Heart className="w-3 h-3 text-red-400 fill-red-400" />
+                <span>{t("من فريق", "by")}</span>
+                <span className="font-medium text-[#c9a84c]">JackoLeeno JL</span>
               </span>
-              <Heart className="w-3 h-3 text-red-500 fill-red-500" />
+              <span className="text-gray-700">·</span>
+              <a
+                href="mailto:info@jackoleeno.com"
+                className="flex items-center gap-1.5 text-gray-400 hover:text-[#c9a84c] transition-colors"
+              >
+                <Mail className="w-3 h-3" />
+                <span>info@jackoleeno.com</span>
+              </a>
             </div>
           </div>
 

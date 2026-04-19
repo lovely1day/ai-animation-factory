@@ -18,7 +18,9 @@ import {
   Search,
   Bell,
   Menu,
-  X
+  X,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useLang } from "@/contexts/language-context";
 import { supabase } from "@/lib/supabase";
@@ -101,7 +103,26 @@ export default function AppHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Theme init — reads stored preference, defaults to dark (factory's native theme)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("jl-theme") as "dark" | "light" | null;
+    const initial = stored || "dark";
+    setTheme(initial);
+    document.documentElement.setAttribute("data-theme", initial);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("jl-theme", next);
+      document.documentElement.setAttribute("data-theme", next);
+    }
+  }
 
   const isHome = pathname === "/";
   const isDashboard = pathname?.startsWith("/cms") || false;
@@ -241,6 +262,17 @@ export default function AppHeader() {
 
               {/* Notifications */}
               <NotificationBell count={3} />
+
+              {/* Theme Toggle — canonical JL 4th element */}
+              <button
+                onClick={toggleTheme}
+                suppressHydrationWarning
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                title={t("تبديل الثيم", "Toggle theme")}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
 
               {/* Language Toggle */}
               <button
