@@ -8,6 +8,7 @@ import { FloatingLogoBackground } from '@/components/layout/FloatingLogoBackgrou
 import JLAssistant from '@/components/JLAssistant';
 import { StatusBanner } from '@/components/layout/StatusBanner';
 import { Analytics } from '@/components/analytics';
+import { BackButton } from '@/components/ui/back-button';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -112,13 +113,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="bg-[#0a0a0f] text-white antialiased font-sans flex flex-col min-h-screen relative">
+      <body className="jl-surface antialiased font-sans flex flex-col min-h-screen relative">
         <LanguageProvider>
           <FloatingLogoBackground />
           <div className="relative z-10 flex flex-col min-h-screen">
             <AppHeader />
             <main className="flex-1 pt-16">
-              <div className="px-4 pt-2">
+              <div className="px-4 pt-2 flex items-center justify-between gap-2">
+                <BackButton />
                 <StatusBanner project="factory" lang="ar" />
               </div>
               {children}

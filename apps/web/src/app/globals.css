@@ -3,18 +3,46 @@
 @tailwind utilities;
 
 :root {
+  /* Brand palette (theme-independent) */
   --color-brand-50: #f5f3ff;
   --color-brand-100: #ede9fe;
   --color-brand-500: #8b5cf6;
   --color-brand-600: #7c3aed;
   --color-brand-950: #0a0a0f;
+  --color-jl-gold: #c9a84c;
+
+  /* JL theme tokens — DARK defaults (factory's native mode) */
+  --jl-bg:         #0a0a0f;
+  --jl-surface:    #12121a;
+  --jl-border:     #2a2a3a;
+  --jl-text:       #e8e4d8;
+  --jl-text-muted: #9ca3af;
+
+  color-scheme: dark;
+}
+
+/* LIGHT theme overrides — activated by <html data-theme="light"> */
+html[data-theme="light"] {
+  --jl-bg:         #f7f5ef;
+  --jl-surface:    #ffffff;
+  --jl-border:     #d9d3c3;
+  --jl-text:       #1a1a1a;
+  --jl-text-muted: #4a4a4a;
+
+  color-scheme: light;
 }
 
 @layer base {
   body {
-    background-color: var(--color-brand-950);
-    color: white;
+    background-color: var(--jl-bg);
+    color: var(--jl-text);
     font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .jl-surface {
+    background-color: var(--jl-bg);
+    color: var(--jl-text);
   }
 }
 
