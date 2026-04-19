@@ -47,5 +47,15 @@ query
 # Claude settings (may contain secrets)
 .claude/settings.json
 
+# VSCode settings (contains Kimi/AI extension API keys)
+.vscode/settings.json
+
 # Backups
 backups/
+
+# Arabic fonts (OFL — download on demand via scripts/download-arabic-fonts.mjs)
+apps/api/assets/fonts/*.ttf
+
+# Dev-only recovery scripts + locally generated video outputs
+apps/api/force-assemble.mjs
+apps/web/public/videos/
