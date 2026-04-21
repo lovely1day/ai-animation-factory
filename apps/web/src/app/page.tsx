@@ -256,6 +256,13 @@ export default function HomePage() {
                 <Film className="w-5 h-5 text-purple-400" />
                 {t("استوديو الإنتاج", "Production Studio")}
               </Link>
+              <Link
+                href="/catalog"
+                className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-violet-500/30 text-white font-semibold py-4 px-10 rounded-2xl transition-all hover:scale-105"
+              >
+                <Layers className="w-5 h-5 text-violet-400" />
+                {t("الكتالوج", "Catalog")}
+              </Link>
             </motion.div>
           </div>
         </section>
